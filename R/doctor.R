@@ -27,6 +27,7 @@ doctor <- function(dbName = NULL, dbUUID = NULL){
   
   for(i in 1:length(afps)){
     annotation = jsonlite::fromJSON(readLines(afps[i]), simplifyVector=F)
+    annotDFs = annotJSONtoListOfDataFrames(annotation)
     links = do.call(rbind.data.frame, annotation$links)
     
     wavPath = file.path(dirname(afps[i]), annotation$annotates)
@@ -47,6 +48,15 @@ doctor <- function(dbName = NULL, dbUUID = NULL){
     # check only correct levels are present
     for(l in annotation$levels){
       lDef = get.levelDefinition(DBconfig = dbObj$DBconfig, l$name)
+      # get linkDefs (where cur. level is superLevel)
+      linkDefs = list()
+      for(ld in dbObj$DBconfig$linkDefinitions){
+        if(ld$superlevelName == l$name){
+          linkDefs[[length(linkDefs) + 1]] = ld
+        }
+      }
+      
+      
       # check if level has levelDef
       if(is.null(lDef)){
         diagnosis$annotJSON$overview$foundProblem[i] = TRUE
@@ -84,7 +94,7 @@ doctor <- function(dbName = NULL, dbUUID = NULL){
         else if(l$type == "EVENT"){
           if(j > 1){
             # check previous
-            if(l$items[[j - 1]]$samplePoint < l$items[[j]]$samplePoint){
+            if(l$items[[j - 1]]$samplePoint > l$items[[j]]$samplePoint){
               diagnosis$annotJSON$overview$foundProblem[i] = TRUE
               diagnosis$annotJSON$errors[[i]][[errorCounter]] = list(message = "Item of type EVENT not in correct sequence",
                                                                      itemID = l$items[[j]]$id)
@@ -95,18 +105,76 @@ doctor <- function(dbName = NULL, dbUUID = NULL){
         
         ###########################################
         # check if links are ok
-        links = do.call(rbind.data.frame, annotation$links)
-        l$items[[j]]$id
-    } # for loop
-    
-    
+        iLinks = annotDFs$links[annotDFs$links$fromID == l$items[[j]]$id, ]
+        
+        parent = annotDFs$items[annotDFs$items$itemID == l$items[[j]]$id, ]
+        kids = annotDFs$items[annotDFs$items$itemID %in% iLinks$toID, ]
+        if(nrow(kids) > 0){
+          for(krow in 1:nrow(kids)){
+            # check that links adhere to levelDef
+            hasLD = F
+            foundLD = NULL
+            for(ld in dbObj$DBconfig$linkDefinitions){
+              if(ld$superlevelName == parent$level && ld$sublevelName == kids[krow, ]$level){
+                hasLD = T
+                foundLD = ld
+                break
+              }
+            }
+            if(!hasLD){
+              diagnosis$annotJSON$overview$foundProblem[i] = TRUE
+              diagnosis$annotJSON$errors[[i]][[errorCounter]] = list(message = "Item found containing links to children that don't match any linkDefinition",
+                                                                     itemID = l$items[[j]]$id)
+              errorCounter = errorCounter + 1
+            }
+            # check that links adhere to linkDefinition$type
+            for(linkDef in linkDefs){
+              kLinksUp = annotDFs$links[annotDFs$links$toID == kids[krow, ]$itemID, ]
+              curParents = annotDFs$items[annotDFs$items$itemID %in% kLinksUp$fromID, ]
+              curParents = curParents[curParents$level == linkDef$superlevelName,]
+              if(ld$type == "ONE_TO_MANY" && nrow(curParents) > 1){
+                diagnosis$annotJSON$overview$foundProblem[i] = TRUE
+                diagnosis$annotJSON$errors[[i]][[errorCounter]] = list(message = "Item found containing links to parents that don't match the linkDefinition$type",
+                                                                       itemID = l$items[[j]]$id,
+                                                                       linkDefType = "ONE_TO_MANY")
+                errorCounter = errorCounter + 1
+              }
+              if(ld$type == "ONE_TO_ONE" && nrow(curParents) != 1){
+                diagnosis$annotJSON$overview$foundProblem[i] = TRUE
+                diagnosis$annotJSON$errors[[i]][[errorCounter]] = list(message = "Item found containing links to parents that don't match the linkDefinition$type",
+                                                                       itemID = l$items[[j]]$id,
+                                                                       linkDefType = "ONE_TO_ONE")
+                errorCounter = errorCounter + 1
+              }
+            }
+            
+          }
+        }
+        
+        for(linkDef in linkDefs){
+          curKids = kids[kids$level == linkDef$sublevelName,]
+          print(curKids)
+          leftestKid = curKids[curKids$seqIdx == min(curKids$seqIdx),]
+          rightestKid = curKids[curKids$seqIdx == max(curKids$seqIdx),]
+          
+          for(curItemNr in 1:length(l$items)){
+            linksCurItemNr = annotDFs$links[annotDFs$links$fromID == l$items[[curItemNr]]$id, ]
+            parentCurItemNr = annotDFs$items[annotDFs$items$itemID == l$items[[curItemNr]]$id, ]
+            kidsCurItemNr = annotDFs$items[annotDFs$items$itemID %in% linksCurItemNr$toID, ]
+          }
+        }
+        
+        
+      } # for loop
+      
+      
+      
+    }
     
   }
   
-}
-
-return(diagnosis)
-
+  return(diagnosis)
+  
 }
 
 ############################
