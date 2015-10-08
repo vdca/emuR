@@ -10,6 +10,7 @@ vignettes/pics/db_structure.pdf
 *.fdb_latexmk
 inst/doc
 
-*.o
-
-*.so
+# Rcpp
+src/*.o
+src/*.so
+src/*.dll
