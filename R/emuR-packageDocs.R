@@ -33,6 +33,8 @@
 ##' 
 ##' @keywords package
 ##' @import methods
+##' @importFrom Rcpp evalCpp
+##' @useDynLib emuR
 ##' @docType package
 ##' @examples
 ##' \dontrun{

@@ -25,11 +25,13 @@ Imports:
     sqldf (>= 0.4.9),
     httpuv (>= 1.3.2),
     base64enc,
-    data.table (>= 1.9.6)
+    data.table (>= 1.9.6),
+    Rcpp
 Suggests:
     testthat(>= 0.7.1.99),
     knitr(>= 1.7),
     compare(>= 0.2.4)
+LinkingTo: Rcpp
 LazyLoad: yes
 LazyData: yes
 ZipData: no
