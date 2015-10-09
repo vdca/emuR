@@ -6,16 +6,19 @@ List annotJSONtoListOfDataFrames(List annot) {
   List levels = annot["levels"];
   List links = annot["links"];
   
+  
   ///////////////////////////////////
   // create links data.frame
   NumericVector fromIdCol(links.size());
   NumericVector toIdCol(links.size());
+  
   
   for(int i=0; i<links.size(); i++) {
     List l =  links[i];
     fromIdCol[i] = l["fromID"];
     toIdCol[i] = l["toID"];
   }
+  
   
   DataFrame linksDF = DataFrame::create(Named("fromID")=fromIdCol,
                                         Named("toID")=toIdCol);
@@ -30,12 +33,14 @@ List annotJSONtoListOfDataFrames(List annot) {
   for(int i=0; i<levels.size(); i++) {
     List l = levels[i];
     List items = l["items"];
-    List firstItem = items[0];
-    List firstItemLabels = firstItem["labels"];
-    labelCounter+= items.size() * firstItemLabels.size();
-    itemCounter += items.size();
+    if(items.size() > 0){
+      List firstItem = items[0];
+      List firstItemLabels = firstItem["labels"];
+      labelCounter+= items.size() * firstItemLabels.size();
+      itemCounter += items.size();
+    }
   }
-  
+
   // init vectors of items data.frame
   NumericVector items_itemIdCol(itemCounter);
   CharacterVector items_levelCol(itemCounter);
