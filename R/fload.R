@@ -178,7 +178,7 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
 
 #####################
 # FOR DEVELOPMENT
-purge_all_emuDBs(interactive = F)
-ae = fload_emuDB("~/emuDBs/newFormat/ALC/")
+# purge_all_emuDBs(interactive = F)
+# ae = fload_emuDB("~/emuDBs/newFormat/ALC/")
 # print(ae)
 
