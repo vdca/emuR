@@ -139,7 +139,7 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
                                    bundle = rep(bName, nrow(listOfDfs$items)),
                                    listOfDfs$items)
       
-      dbWriteTable(con, "item", listOfDfs$items, append = T)
+      dbWriteTable(con, "items", listOfDfs$items, append = T)
       
       # insert labels table entries
       listOfDfs$labels =  data.frame(db_uuid = rep(db$DBconfig$UUID, nrow(listOfDfs$labels)), 
