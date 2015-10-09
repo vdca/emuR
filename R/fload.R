@@ -119,7 +119,7 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
       
       annotFilePath = file.path(absBd, paste0(bName, bundle.annotation.suffix, '.json'))
       bundle = jsonlite::fromJSON(normalizePath(annotFilePath), simplifyVector = FALSE)
-      listOfDfs = annotJSONtoListOfDataFrames(bndl)
+      listOfDfs = annotJSONtoListOfDataFrames(bundle)
       
       # calculate MD5 sum of bundle annotJSON      
       MD5annotJSON = md5sum(normalizePath(annotFilePath))
@@ -178,7 +178,7 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
 
 #####################
 # FOR DEVELOPMENT
-# purge_all_emuDBs(interactive = F)
-# ae = fload_emuDB("~/Desktop/QE_MAuS/")
+purge_all_emuDBs(interactive = F)
+ae = fload_emuDB("~/emuDBs/newFormat/ALC/")
 # print(ae)
 
