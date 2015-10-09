@@ -1756,7 +1756,7 @@ calculate.postions.of.links<-function(dbUUID){
 ##' dbName=load_emuDB(/homes/mylogin/EMUnew/ae")
 ##' 
 ##' }
-load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
+oldload_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
   progress=0
   
   # check database dir
