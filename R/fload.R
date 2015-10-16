@@ -8,7 +8,7 @@ finsert_bundle <- function(dbName, annotFilePath, sessionName,
   bundle = jsonlite::fromJSON(normalizePath(annotFilePath), simplifyVector = FALSE)
   listOfDfs = annotJSONtoListOfDataFrames(bundle)
   
-  # calculate MD5 sum of bundle annotJSON      
+  # calculate MD5 sum of bundle annotJSON
   MD5annotJSON = md5sum(normalizePath(annotFilePath))
   names(MD5annotJSON) = NULL
   
@@ -373,60 +373,83 @@ fupdate_cache <- function(dbName, dbUUID=NULL, verbose = TRUE){
   }
 }
 
-# depthFirstTraversal = function(graph, curNodeName, path = NULL){
-#   
-#   graph$nodes[graph$nodes$name == curNodeName,]$visited = T
-#   
-#   kidNodeNames = graph$links$sublevelName[graph$links$superlevelName == curNodeName]
-#   
-#   # if leaf node
-#   if(length(kidNodeNames) == 0){
-#     print("LEAF NODE!!!!!!!")
-#     print(path)
-#     print('###############')
-#   }else{
-#     for(kidNodeName in kidNodeNames){
-#       if(graph$nodes[graph$nodes$name == curNodeName,]$visited == T){
-#         path = c(path, kidNodeName)
-#         depthFirstTraversal(graph, kidNodeName, path)
-#       }
-#     }
-#   }
-#   
-#   if(all(graph$nodes$visited)){
-#     print("Done")
-#   }
-# }
-# 
-# 
-# build_hierarchyViews = function(dbName, dbUUID = NULL){
-#   
-#   dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
-#   
-#   DBconfigJSON = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT DBconfigJSON FROM emuDB WHERE uuid='", dbUUID,"'"))
-#   
-#   DBconfig = jsonlite::fromJSON(DBconfigJSON$DBconfigJSON)
-#   
-#   linkDefs = DBconfig$linkDefinitions
-#   
-#   nodes = data.frame(name = unique(c(linkDefs$superlevelName, linkDefs$sublevelName)),
-#                      visited = F)
-#   
-#   graph = list(nodes = nodes, links = linkDefs)
-#   
-#   rootLinkDefs = linkDefs[!linkDefs$superlevelName %in% linkDefs$sublevelName,]
-#   
-#   
-#   
-#   depthFirstTraversal(graph, rootLinkDefs[1,]$superlevelName, rootLinkDefs[1,]$superlevelName)
-#   
-# }
 
+
+
+build_rootLeafPaths = function(dbName, dbUUID = NULL){
+  
+  resPaths = NULL
+  ##################################
+  #
+  depthFirstTraversal = function(graph, curNodeName, path = NULL){
+    
+    graph$nodes[graph$nodes$name == curNodeName,]$visited = T
+    
+    kidNodeNames = graph$links$sublevelName[graph$links$superlevelName == curNodeName]
+    
+    # if leaf node
+    if(length(kidNodeNames) == 0){
+      resPaths[[length(resPaths) + 1]] <<- path
+    }else{
+      for(kidNodeName in kidNodeNames){
+        if(graph$nodes[graph$nodes$name == curNodeName,]$visited == T){
+          path = c(path, kidNodeName)
+          depthFirstTraversal(graph, kidNodeName, path)
+        }
+      }
+    }
+    
+    if(all(graph$nodes$visited)){
+      print("Done")
+    }
+  }
+  
+  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  
+  DBconfigJSON = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT DBconfigJSON FROM emuDB WHERE uuid='", dbUUID,"'"))
+  
+  DBconfig = jsonlite::fromJSON(DBconfigJSON$DBconfigJSON)
+  
+  linkDefs = DBconfig$linkDefinitions
+  
+  nodes = data.frame(name = unique(c(linkDefs$superlevelName, linkDefs$sublevelName)),
+                     visited = F)
+  
+  graph = list(nodes = nodes, links = linkDefs)
+  
+  rootLinkDefs = linkDefs[!linkDefs$superlevelName %in% linkDefs$sublevelName,]
+  
+  depthFirstTraversal(graph, rootLinkDefs[1,]$superlevelName, rootLinkDefs[1,]$superlevelName)
+  
+  return(resPaths)
+  
+}
+
+build_SQLviews <- function(dbName, paths, dbUUID = NULL) {
+  
+  dbUUID = get_emuDB_UUID(dbName, dbUUID)
+  
+  curPath = paths[[1]]
+  print(curPath)
+  curSuperLevel = curPath[1]
+  
+  qRes = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT * FROM items AS superItems, links AS lt, items AS subItems WHERE ",
+                                                 "superItems.level='", curSuperLevel, "' ",
+                                                 "AND superItems.db_uuid=lt.db_uuid AND superItems.session=lt.session ",
+                                                 "AND superItems.bundle=lt.bundle ",
+                                                 "AND superItems.itemID=lt.fromID ",
+                                                 "AND subItems.db_uuid=lt.db_uuid AND subItems.session=lt.session ",
+                                                 "AND subItems.bundle=subItems.bundle ", 
+                                                 "AND subItems.itemID=lt.toID"))
+  print(head(qRes))
+}
 
 #####################
 # FOR DEVELOPMENT
 # library('testthat')
 # test_file('tests/testthat/test_aaa_initData.R')
 # test_file('tests/testthat/test_fload.R')
-
+# ae =load_emuDB('~/Desktop/emuR_demoData/ae')
+# paths = build_rootLeafPaths(ae)
+# build_SQLviews(ae, paths)
 
