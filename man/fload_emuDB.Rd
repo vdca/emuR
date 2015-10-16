@@ -4,7 +4,7 @@
 \alias{fload_emuDB}
 \title{(Fast) Load emuDB}
 \usage{
-fload_emuDB(databaseDir, inMemoryCache = FALSE, verbose = TRUE)
+fload_emuDB(databaseDir, inMemoryCache = TRUE, verbose = TRUE)
 }
 \arguments{
 \item{databaseDir}{directory of the emuDB}
@@ -26,9 +26,6 @@ name of emuDB
 dbName=load_emuDB(/homes/mylogin/EMUnew/ae")
 
 }
-}
-\author{
-Klaus Jaensch
 }
 \keyword{Emu}
 \keyword{database}
