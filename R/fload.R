@@ -431,17 +431,47 @@ build_SQLviews <- function(dbName, paths, dbUUID = NULL) {
   
   curPath = paths[[1]]
   print(curPath)
-  curSuperLevel = curPath[1]
   
-  qRes = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT * FROM items AS superItems, links AS lt, items AS subItems WHERE ",
-                                                 "superItems.level='", curSuperLevel, "' ",
-                                                 "AND superItems.db_uuid=lt.db_uuid AND superItems.session=lt.session ",
-                                                 "AND superItems.bundle=lt.bundle ",
-                                                 "AND superItems.itemID=lt.fromID ",
-                                                 "AND subItems.db_uuid=lt.db_uuid AND subItems.session=lt.session ",
-                                                 "AND subItems.bundle=subItems.bundle ", 
-                                                 "AND subItems.itemID=lt.toID"))
-  print(head(qRes))
+  curPath = paths[[1]][1:2]
+  
+  queryStringSelect = "SELECT * FROM "
+  queryStringWhere = "WHERE " 
+  
+  for(i in 1:(length(curPath)-1)){
+    curSuperLevel = curPath[i]
+    curSubLevel = curPath[i + 1]
+    # build SELECT statement
+    queryStringSelect = paste0(queryStringSelect, "items AS ", curSuperLevel, "Items, links AS ", curSuperLevel, "Links, ")
+    
+    if(i == length(curPath)-1){
+      queryStringSelect = paste0(queryStringSelect, "items AS ", curSubLevel, "Items ")
+    }
+    
+    # build WHERE statement
+    queryStringWhere = paste0(queryStringWhere, curSuperLevel, "Items.level='", curSuperLevel,"' ",
+                              "AND ", curSuperLevel, "Items.db_uuid=", curSuperLevel,"Links.db_uuid AND " ,curSuperLevel, "Items.session=" ,curSuperLevel, "Links.session ",
+                              "AND ", curSuperLevel, "Items.bundle=", curSuperLevel, "Links.bundle ",
+                              "AND ", curSuperLevel, "Items.itemID=", curSuperLevel, "Links.fromID ",
+                              "AND ", curSubLevel, "Items.db_uuid=", curSuperLevel, "Links.db_uuid AND ", curSubLevel, "Items.session=", curSuperLevel, "Links.session ",
+                              "AND ", curSubLevel, "Items.bundle=", curSuperLevel, "Links.bundle ", 
+                              "AND ", curSubLevel, "Items.itemID=", curSuperLevel, "Links.toID ")
+    
+  }
+  
+  queryString = paste0(queryStringSelect, queryStringWhere)
+  print(queryString)
+  
+  qRes = dbGetQuery(get_emuDBcon(dbUUID), queryString)
+       
+  #   qRes = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT * FROM items AS superItems, links AS lt, items AS subItems WHERE ",
+  #                                                  "superItems.level='", curSuperLevel, "' ",
+  #                                                  "AND superItems.db_uuid=lt.db_uuid AND superItems.session=lt.session ",
+  #                                                  "AND superItems.bundle=lt.bundle ",
+  #                                                  "AND superItems.itemID=lt.fromID ",
+  #                                                  "AND subItems.db_uuid=lt.db_uuid AND subItems.session=lt.session ",
+  #                                                  "AND subItems.bundle=subItems.bundle ", 
+  #                                                  "AND subItems.itemID=lt.toID"))
+    print(head(qRes))
 }
 
 #####################
