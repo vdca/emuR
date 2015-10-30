@@ -18,7 +18,6 @@ finsert_bundle <- function(dbName, annotFilePath, sessionName,
                                          name = bundleName,
                                          annotates = bundle$annotates,
                                          sampleRate = bundle$sampleRate,
-                                         mediaFilePath = bundle$annotates, # SIC will have to be deleted once portable cache is merged into master
                                          MD5annotJSON = MD5annotJSON), append = T)
   # insert items table entries
   listOfDfs$items = data.frame(db_uuid = rep(dbUUID, nrow(listOfDfs$items)), 
@@ -97,28 +96,26 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
   schema=load.emuDB.DBconfig(dbCfgPath)
   # set transient values
   schema=.update.transient.schema.values(schema)
+  # normalize base path
+  basePath = normalizePath(databaseDir)
   # create db object
-  db=create.database(name = schema[['name']], basePath = normalizePath(databaseDir),DBconfig = schema)
+  db=create.database(name = schema[['name']], basePath = basePath,DBconfig = schema)
   
   dbUUID = schema$UUID
   
   # add new connection
   if(inMemoryCache){
-    con = dbConnect(RSQLite::SQLite(), ":memory:")
-    con = add_emuDBcon(con)
+    handle = add_emuDBhandle(basePath)
+    con=handle$connection
   }else{
     dbPath = file.path(normalizePath(databaseDir), paste0(schema$name, database.cache.suffix))
-    con = dbConnect(RSQLite::SQLite(), dbPath)
-    con = add_emuDBcon(con, dbPath)
+    handle = add_emuDBhandle(basePath, dbPath)
+    con=handle$connection
   }
   
   # check if database is already loaded (if so perform update_cache)
   dbsDf=dbGetQuery(con,paste0("SELECT * FROM emuDB WHERE uuid='",schema[['UUID']],"'"))
   if(nrow(dbsDf)>0){
-    # always update basePat (SIC!!! This will be removed once the portable-cache branch is merged)
-    dbGetQuery(con, paste0("UPDATE emuDB SET basePath = '", normalizePath(databaseDir) , "' ",
-                           "WHERE uuid = '", dbUUID, "'"))
-    
     fupdate_cache(schema[['name']], dbUUID = dbUUID, verbose = verbose)
     return(schema$name)
   }
