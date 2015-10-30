@@ -152,47 +152,6 @@ test_that("fupdate_cache works", {
   }
   unlink(path2db, recursive = T)
   
-  
-  
-})
-
-############################
-test_that("sqlConnections CRUD operations work", {
-  
-  path2testDB = file.path(path2testData, paste0("testthat", database.cache.suffix))
-  
-  fileCon = NULL
-  
-  #########################
-  test_that("add works", {
-    # only single instance is added 
-    add_emuDBcon(dbConnect(RSQLite::SQLite(), path2testDB), path2testDB)
-    origLength = length(internalVars$sqlConnections)
-    fileCon = add_emuDBcon(dbConnect(RSQLite::SQLite(), path2testDB), path2testDB)
-    expect_equal(length(internalVars$sqlConnections), origLength)
-    
-  })
-  
-  #########################  
-  test_that("get works", {
-    # check that :memory: connection is returned by default
-    purge_all_emuDBs(interactive = F)
-    expect_true(length(internalVars$sqlConnections) == 0)
-    
-    inMemCon = get_emuDBcon()
-    expect_true(length(internalVars$sqlConnections) == 1)
-    
-  })
-  
-  #########################
-  test_that("remove works", {
-    remove_emuDBcon(":memory:")    
-    expect_true(length(internalVars$sqlConnections) == 0)
-  })
-  
-  # cleanup 
-  unlink(path2testDB)
-  
 })
 
 
