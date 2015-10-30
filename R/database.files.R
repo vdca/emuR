@@ -61,7 +61,7 @@ import_mediaFiles<-function(dbName,dir,targetSessionName='0000',dbUUID=NULL, ver
     
     pfAssp=read.AsspDataObj(newMediaFileFullPath,0,4000)
     sampleRate=attr(pfAssp,'sampleRate')
-    b=create.bundle(name = bundleName,sessionName = targetSessionName,mediaFilePath = newMediaFileFullPath,annotates=mf,sampleRate=sampleRate)
+    b=create.bundle(name = bundleName,sessionName = targetSessionName,annotates=mf,sampleRate=sampleRate)
     b[['session']]=targetSessionName
     .store.bundle.DBI(database = db,bundle=b)
     #db[['sessions']][[targetSessionName]][['bundles']][[bundleName]]=b
@@ -133,9 +133,8 @@ add_files <- function(dbName, dir, fileExtension, targetSessionName='0000', dbUU
   dbObj = .load.emuDB.DBI(name = dbName, uuid = dbUUID)
   
   # get all basePath + bundles
-  l = list_emuDBs()
-  bp = l[l$uuid == dbUUID, ]$basePath
-  
+  dbHandle=get_emuDBhandle(dbUUID)
+  bp=dbHandle$basePath
   
   bndls = list_bundles(dbName, session = targetSessionName, dbUUID=dbUUID)
   
@@ -174,8 +173,8 @@ list_files <- function(dbName,
   dbObj = .load.emuDB.DBI(name = dbName, uuid = dbUUID)
   
   # get all basePath + bundles
-  l = list_emuDBs()
-  bp = l[l$uuid == dbUUID, ]$basePath
+  dbHandle=get_emuDBhandle(dbUUID)
+  bp=dbHandle$basePath
   
   bndls = list_bundles(dbName, dbUUID = dbUUID)
   

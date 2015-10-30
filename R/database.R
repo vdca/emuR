@@ -22,6 +22,35 @@ internalVars$testingVars$inMemoryCache = F
 ##########################################################
 # CRUD like operations for internalVars$sqlConnections
 
+get_emuDBhandle <- function(dbUUID = NULL) {
+  # add in memory connection just to make sure it exists
+  
+  foundHandle = NULL
+  for(c in internalVars$sqlConnections){
+    if(is.null(dbUUID)){
+      if(c$path == ":memory:"){
+        foundHandle = c
+        break
+      }
+    }else{
+      res = dbGetQuery(c$con, "SELECT uuid FROM emuDB")
+      if(dbUUID %in% res$uuid){
+        foundHandle = c
+        break
+      }
+    }
+  }
+  ## make sure :memory: connection is always there
+  #if(is.null(dbUUID) & is.null(foundHandle)){
+  #  con = dbConnect(RSQLite::SQLite(), ":memory:")
+  #  add_emuDBcon(con)
+  #  foundCon = con
+  #}
+  
+  return(foundHandle)
+}
+
+
 get_emuDBcon <- function(dbUUID = NULL) {
   # add in memory connection just to make sure it exists
   
@@ -41,37 +70,48 @@ get_emuDBcon <- function(dbUUID = NULL) {
     }
   }
   # make sure :memory: connection is always there
-  if(is.null(dbUUID) & is.null(foundCon)){
-    con = dbConnect(RSQLite::SQLite(), ":memory:")
-    add_emuDBcon(con)
-    foundCon = con
-  }
+  #if(is.null(dbUUID) & is.null(foundCon)){
+  #  con = dbConnect(RSQLite::SQLite(), ":memory:")
+  #  add_emuDBcon(con)
+  #  foundCon = con
+  #}
   
   return(foundCon)
 }
 
 
-## @param connection of type returned from DBI::dbConnect() function
+## @param basePath base path of emuDB
 ## @param path to SQLiteDB
-add_emuDBcon <- function(con, path = ":memory:"){
-  foundCon = NULL
-  for(c in internalVars$sqlConnections){
-    if(c$path == path){
-      foundCon = c$con
+## @return new or already existing emuDB handle
+add_emuDBhandle <- function(basePath, path = NULL){
+  foundHandle = NULL
+  if(is.null(path)){
+    # create empty db in memory and initialize tables
+    path=":memory:"
+    initialize=T
+    con = dbConnect(RSQLite::SQLite(), path)
+  }else{
+    initialize=(!file.exists(path))
+    con= dbConnect(RSQLite::SQLite(),path)
+  }
+  if(initialize){
+    .initialize.DBI.database(con)
+  }
+  for(h in internalVars$sqlConnections){
+    if(h$path == path){
+      foundHandle = h
     }
   }
-  
   # only add if not found to avoid duplicates
-  if(is.null(foundCon)){
-    .initialize.DBI.database(con)
-    internalVars$sqlConnections[[length(internalVars$sqlConnections) + 1]] = list(path = path,
-                                                                                  connection = con)
-    foundCon = con
+  if(is.null(foundHandle)){
+    newHandle=list(path = path,basePath=basePath,connection = con)
+    internalVars$sqlConnections[[length(internalVars$sqlConnections) + 1]] = newHandle
+    foundHandle = newHandle
   }
-  return(foundCon)
+  return(foundHandle)
 }
 
-remove_emuDBcon <- function(path){
+remove_emuDBhandle <- function(path){
   
   for(i in 1:length(internalVars$sqlConnections)){
     if(internalVars$sqlConnections[[i]]$path == path){
@@ -109,13 +149,13 @@ database.DDL.emuDB_session='CREATE TABLE session (
   FOREIGN KEY (db_uuid) REFERENCES emuDB(uuid)
 );'
 
-database.DDL.emuDB_track='CREATE TABLE track (
-  db_uuid VARCHAR(36),
-  session TEXT,
-  bundle TEXT,
-  path TEXT,
-  FOREIGN KEY (db_uuid,session,bundle) REFERENCES bundle(db_uuid,session_name,name)
-);'
+# database.DDL.emuDB_track='CREATE TABLE track (
+#   db_uuid VARCHAR(36),
+#   session TEXT,
+#   bundle TEXT,
+#   path TEXT,
+#   FOREIGN KEY (db_uuid,session,bundle) REFERENCES bundle(db_uuid,session_name,name)
+# );'
 
 database.DDL.emuDB_bundle='CREATE TABLE bundle (
   db_uuid VARCHAR(36),
@@ -123,7 +163,6 @@ database.DDL.emuDB_bundle='CREATE TABLE bundle (
   name TEXT,
   annotates TEXT,
   sampleRate FLOAT,
-  mediaFilePath TEXT,
   MD5annotJSON TEXT,
   PRIMARY KEY (db_uuid,session,name),
   FOREIGN KEY (db_uuid,session) REFERENCES session(db_uuid,name)
@@ -242,9 +281,9 @@ database.DDL.emuDB_linksExtTmpIdx2='CREATE INDEX linksExtTmp2_idx ON linksExtTmp
   dbCfg=database[['DBconfig']]
   dbCfgJSON=jsonlite::toJSON(dbCfg,auto_unbox=TRUE,force=TRUE,pretty=TRUE)
   if(is.null(MD5DBconfigJSON)){
-    dbSqlInsert=paste0("INSERT INTO emuDB(uuid,name,basePath,DBconfigJSON,MD5DBconfigJSON) VALUES('",dbCfg[['UUID']],"','",dbCfg[['name']],"','",database[['basePath']],"','",dbCfgJSON,"', NULL", ")")
+    dbSqlInsert=paste0("INSERT INTO emuDB(uuid,name,basePath,DBconfigJSON,MD5DBconfigJSON) VALUES('",dbCfg[['UUID']],"','",dbCfg[['name']],"',NULL,'",dbCfgJSON,"', NULL", ")")
   }else{
-    dbSqlInsert=paste0("INSERT INTO emuDB(uuid,name,basePath,DBconfigJSON,MD5DBconfigJSON) VALUES('",dbCfg[['UUID']],"','",dbCfg[['name']],"','",database[['basePath']],"','",dbCfgJSON,"', '",MD5DBconfigJSON,"')")
+    dbSqlInsert=paste0("INSERT INTO emuDB(uuid,name,basePath,DBconfigJSON,MD5DBconfigJSON) VALUES('",dbCfg[['UUID']],"','",dbCfg[['name']],"',NULL,'",dbCfgJSON,"', '",MD5DBconfigJSON,"')")
   }
   res <- dbSendQuery(con,dbSqlInsert)
   dbClearResult(res)
@@ -270,15 +309,17 @@ get.database<-function(uuid=NULL,name=NULL){
   if(is.null(uuid)){
     uuid=get_emuDB_UUID(name)
   }
+  handle=get_emuDBhandle(uuid)
+  con=handle$connection
   dbQ=paste0("SELECT * FROM emuDB WHERE uuid='",uuid,"'")
-  dbDf=dbGetQuery(get_emuDBcon(uuid),dbQ)
+  dbDf=dbGetQuery(con,dbQ)
   dbCount=nrow(dbDf)
   if(dbCount==0){
     stop("Database not found !\n")
   }else if (dbCount==1){
     dbCfgObj=jsonlite::fromJSON(dbDf[['DBconfigJSON']],simplifyVector=FALSE)
     dbCfg=unmarshal.from.persistence(x=dbCfgObj,classMap = emuR.persist.class.DBconfig)
-    db=create.database(name = dbDf[['name']],basePath = dbDf[['basePath']],DBconfig = dbCfg)
+    db=create.database(name = dbDf[['name']],basePath = handle$basePath,DBconfig = dbCfg)
   }else{
     stop("Found ",dbCount," databases with same name: ",name,". Please specify database UUID!\n")
   }
@@ -303,16 +344,12 @@ get.database<-function(uuid=NULL,name=NULL){
   #dbCfgJSON=jsonlite::toJSON(dbCfg,auto_unbox=TRUE,force=TRUE,pretty=TRUE)
   #dbSqlInsert=paste0("INSERT INTO emuDB(name,databaseDir,DBconfigJSON) VALUES('",dbCfg[['name']],"','",database[['databseDir']],"','",dbCfgJSON,"')")
   if(is.null(MD5annotJSON)){
-    bSqlInsert=paste0("INSERT INTO bundle(db_uuid,session,name,annotates,sampleRate,mediaFilePath,MD5annotJSON) VALUES('",dbCfg[['UUID']],"','",bundle[['session']],"','",bundle[['name']],"','",bundle[['annotates']],"',",bundle[['sampleRate']],",'",bundle[['mediaFilePath']],"'",",'NULL')")
+    bSqlInsert=paste0("INSERT INTO bundle(db_uuid,session,name,annotates,sampleRate,MD5annotJSON) VALUES('",dbCfg[['UUID']],"','",bundle[['session']],"','",bundle[['name']],"','",bundle[['annotates']],"',",bundle[['sampleRate']],",'NULL')")
   }else{
-    bSqlInsert=paste0("INSERT INTO bundle(db_uuid,session,name,annotates,sampleRate,mediaFilePath,MD5annotJSON) VALUES('",dbCfg[['UUID']],"','",bundle[['session']],"','",bundle[['name']],"','",bundle[['annotates']],"',",bundle[['sampleRate']],",'",bundle[['mediaFilePath']],"'",",'",MD5annotJSON,"')")
+    bSqlInsert=paste0("INSERT INTO bundle(db_uuid,session,name,annotates,sampleRate,MD5annotJSON) VALUES('",dbCfg[['UUID']],"','",bundle[['session']],"','",bundle[['name']],"','",bundle[['annotates']],"',",bundle[['sampleRate']],",'",MD5annotJSON,"')")
   }
   res <- dbSendQuery(get_emuDBcon(dbCfg$UUID),bSqlInsert)
   dbClearResult(res)
-  for(trackPath in bundle[['signalpaths']]){
-    trSqlInsert=paste0("INSERT INTO track(db_uuid,session,bundle,path) VALUES('",dbCfg[['UUID']],"','",bundle[['session']],"','",bundle[['name']],"','",trackPath,"')")
-    res <- dbSendQuery(get_emuDBcon(dbCfg$UUID),trSqlInsert)
-  }
 }
 
 .get.bundle.count.DBI<-function(dbUUID){
@@ -332,17 +369,13 @@ get.database<-function(uuid=NULL,name=NULL){
 
 
 .load.bundle.DBI<-function(dbUUID,sessionName,bundleName){
-  bQ=paste0("SELECT db_uuid, session, name, annotates, sampleRate, mediaFilePath FROM bundle WHERE db_uuid='",dbUUID,"' AND session='",sessionName,"' AND name='",bundleName,"'")
+  bQ=paste0("SELECT db_uuid, session, name, annotates, sampleRate FROM bundle WHERE db_uuid='",dbUUID,"' AND session='",sessionName,"' AND name='",bundleName,"'")
   bDf=dbGetQuery(get_emuDBcon(dbUUID),bQ)
-  spQ=paste0("SELECT * FROM track WHERE db_uuid='",dbUUID,"' AND session='",sessionName,"' AND bundle='",bundleName,"'")
-  spDf=dbGetQuery(get_emuDBcon(dbUUID),spQ)
-  signalpaths=as.list(spDf[['path']])
   bDfRows=nrow(bDf)
   if(bDfRows==0){
     return(NULL)
   }else if(bDfRows==1){
     bList=as.list(bDf)
-    bList[['signalpaths']]=signalpaths
     return(bList)
   }else{
     stop("Ambigious result for bundle lookup")
@@ -363,8 +396,8 @@ get.database<-function(uuid=NULL,name=NULL){
     dbClearResult(res)
     res <- dbSendQuery(con, database.DDL.emuDB_session) 
     dbClearResult(res)
-    res <- dbSendQuery(con, database.DDL.emuDB_track) 
-    dbClearResult(res)
+    # res <- dbSendQuery(con, database.DDL.emuDB_track) 
+    # dbClearResult(res)
     res <- dbSendQuery(con, database.DDL.emuDB_bundle) 
     dbClearResult(res)
     res <- dbSendQuery(con, database.DDL.emuDB_items) 
@@ -472,13 +505,13 @@ list_emuDBs<-function(){
                   uuid = character(),
                   cachePath = character(),
                   stringsAsFactors = F)
-  for(c in internalVars$sqlConnections){
-    dbs=dbGetQuery(c$connection, "SELECT name,basePath,uuid FROM emuDB")
+  for(h in internalVars$sqlConnections){
+    dbs=dbGetQuery(h$connection, "SELECT name,uuid FROM emuDB")
     if(nrow(dbs) > 0){
       df = rbind(df, data.frame(name = dbs$name,
-                                basePath = dbs$basePath,
+                                basePath = h$basePath,
                                 uuid = dbs$uuid,
-                                cachePath = c$path,
+                                cachePath = h$path,
                                 stringsAsFactors = F))
     }
   }
@@ -490,7 +523,7 @@ list_emuDBs<-function(){
   dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM linksExt WHERE db_uuid='",dbUUID,"'"))
   dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM labels WHERE db_uuid='",dbUUID,"'"))
   dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM items WHERE db_uuid='",dbUUID,"'"))
-  dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM track WHERE db_uuid='",dbUUID,"'"))
+  # dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM track WHERE db_uuid='",dbUUID,"'"))
   dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM bundle WHERE db_uuid='",dbUUID,"'"))
   dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM session WHERE db_uuid='",dbUUID,"'"))
   dbs=dbGetQuery(get_emuDBcon(dbUUID),paste0("DELETE FROM emuDB WHERE uuid='",dbUUID,"'"))
@@ -528,7 +561,7 @@ purge_emuDB<-function(dbName=NULL,dbUUID=NULL,interactive=TRUE){
           if(c$path == ":memory:"){
             .purge.emuDB(dbUUID)
           }else{
-            remove_emuDBcon(c$path)
+            remove_emuDBhandle(c$path)
           }  
           purged=TRUE
           
@@ -555,7 +588,7 @@ purge_all_emuDBs<-function(interactive=TRUE){
   }
   if(ans=='y'){
     for(c in internalVars$sqlConnections){
-      remove_emuDBcon(c$path)
+      remove_emuDBhandle(c$path)
     }
     # .destroy.DBI.database()
     # .initialize.DBI.database()
@@ -662,8 +695,8 @@ summary_emuDB<-function(dbName=NULL,dbUUID=NULL){
 # @param legacyBundleID legacy bundle ID
 # @param annotates annotated signal file
 # @param sampleRate sample rate
-# @param signalpaths pathes of signal files
-# @param mediaFilePath path pattern of samples track
+# @param signalpaths pathes of signal files (legacy only)
+# @param mediaFilePath path pattern of samples track (legacy only)
 # @param levels list of annotation levels
 # @param links list of links containing the hierarchical information of the annotation levels
 # @return object of class emuDB.bundle
@@ -679,6 +712,49 @@ as.bundle <- function(bundleData){
   class(bundleData) <- 'emuDB.bundle'
   attr(bundleData,'ips.persist')<-list(typesJSON=list(levels='array'))
   invisible(bundleData)
+}
+
+# Get media file full path
+# @param database database object
+# @param bundle bundle object
+# @return full path of media file
+# @author Klaus Jaensch
+get_media_file_path<-function(database,bundle){
+  basePath=database['basePath']
+  mfp=NULL
+  mfp=file.path(basePath, paste0(bundle$session, session.suffix), paste0(bundle$name, bundle.dir.suffix), bundle$annotates)
+  return(mfp)
+}
+
+# Get track file path either by extnsion or by name
+# @param database database object
+# @param bundle bundle object
+# @param sffTrackExt track extension
+# @param ssffTrackName track name
+# @return full path to track file or null if the track is not defined
+# @author Klaus Jaensch
+get_ssfftrack_file_path<-function(database,bundle,ssffTrackExt=NULL,ssffTrackName=NULL){
+  basePath=database['basePath']
+  sp=NULL
+  if(!is.null(ssffTrackExt)){
+    for(ssffTrackDef in database[['DBconfig']][['ssffTrackDefinitions']]){
+      ssffTrackDefExt=ssffTrackDef[['fileExtension']]
+      if(ssffTrackExt==ssffTrackDefExt){
+        sp=file.path(basePath, paste0(bundle$session, session.suffix), paste0(bundle$name, bundle.dir.suffix), paste0(bundle$name, ".", ssffTrackExt))
+      }
+    }
+  }else if(!is.null(ssffTrackName)){
+    for(ssffTrackDef in database[['DBconfig']][['ssffTrackDefinitions']]){
+      ssffTrackDefName=ssffTrackDef[['name']]
+      if(ssffTrackName==ssffTrackDefName){
+        ssffTrackExt=ssffTrackDef[['fileExtension']]
+        sp=file.path(basePath, paste0(bundle$session, session.suffix), paste0(bundle$name, bundle.dir.suffix), paste0(bundle$name, ".", ssffTrackExt))
+      }
+    }
+  }else{
+    stop("Either track extension or track name must be given.")
+  }
+  return(sp)
 }
 
 build.redundant.links.all<-function(database,sessionName=NULL,bundleName=NULL){
@@ -1078,18 +1154,6 @@ get.bundle <- function(dbName=NULL,sessionName,bundleName,dbUUID=NULL){
 # }
 
 
-emuDB.print.bundle <- function(utt){
-  cat("code=",utt[['name']],"\n")
-  cat("signalurls:\n")
-  for(mf in utt[['signalpaths']]){
-    print(mf) 
-  }
-  cat("levels:\n")
-  for(a in utt[['levels']]){
-    print(a) 
-  }
-}
-
 emuDB.session <- function(name,path=NULL,bundles=list){
   o <- list(name=name,path=path,bundles=bundles)
   class(o) <- 'emuDB.session'
@@ -1133,119 +1197,119 @@ is.relative.file.path<-function(nativeFilePathStr,forRunningPlatform=FALSE){
   return(TRUE)
 }
 
-extractTrackdata <- function(db=NULL,segmentList=NULL,trackName=NULL){
-  schema=db[['DBconfig']]
-  signalExt=NULL
-  for(tr in schema[['tracks']]){
-    if(tr[['name']]==trackName){
-      signalExt=tr[['fileExtension']]
-    }
-  }
-  signalExtPatt=paste0('[.]',signalExt,'$')
-  currentUtt=''
-  currentAsspObj=NULL
-  utts=segmentList[['utts']]
-  
-  index <- matrix(ncol=2, nrow=length(utts))
-  colnames(index) <- c("start","end")
-  
-  ftime <- matrix(ncol=2, nrow=length(utts))
-  colnames(ftime) <- c("start","end")
-  
-  data <- NULL
-  origFreq <- NULL
-  
-  #########################
-  # LOOP OVER UTTS
-  curIndexStart = 1
-  for (i in 1:length(utts)){
-    
-    un=segmentList[['utts']][[i]]
-    if(currentUtt!=un){
-      #cat("Utt: ",un,"\n")
-      u=get.bundle(db,un)
-      for(sp in u[['signalpaths']]){ 
-        if(length(grep(signalExtPatt,sp))==1){
-          #cat("Signal path: ",sp,"\n")
-          currentAsspObj=read.AsspDataObj(sp)
-        }
-      }
-    }
-    # we should have the corresponding (complete) ASSP data obj for the segment here
-    completeData=currentAsspObj[[trackName]] 
-    ncols=ncol(completeData) 
-    if(is.null(data)){
-      data <- matrix(ncol=ncols, nrow=0)
-    }
-    
-    sampleRate=attr(currentAsspObj,"sampleRate")
-    #cat("Cols: ",ncols,"\n")
-    origFreq <- attr(currentAsspObj, "origFreq")
-    
-    curStart <- segmentList[['start']][i]
-    curEnd <- segmentList[['end']][i]
-    
-    fSampleRateInMS <- (1/sampleRate)*1000
-    fStartTime <- attr(currentAsspObj,"startTime")*1000
-    #cat("Seq: ",fStartTime, curEnd, fSampleRateInMS,"\n")
-    timeStampSeq <- seq(fStartTime, curEnd, fSampleRateInMS)
-    ###########################################
-    # search for first item larger than start time
-    breakVal <- -1
-    for (j in 1:length(timeStampSeq)){
-      if (timeStampSeq[j] >= curStart){
-        breakVal <- j
-        break
-      }
-    }
-    curStartDataIdx <- breakVal
-    curEndDataIdx <- length(timeStampSeq)
-    
-    ####################
-    # set index and ftime
-    curIndexEnd <- curIndexStart+curEndDataIdx-curStartDataIdx
-    index[i,] <- c(curIndexStart, curIndexEnd)
-    ftime[i,] <- c(timeStampSeq[curStartDataIdx], timeStampSeq[curEndDataIdx])
-    
-    #############################
-    # calculate size of and create new data matrix
-    #tmpData <- eval(parse(text=paste("curDObj$",colName,sep="")))
-    
-    
-    rowSeq <- seq(timeStampSeq[curStartDataIdx],timeStampSeq[curEndDataIdx], fSampleRateInMS) 
-    curData <- matrix(ncol=ncol(completeData), nrow=length(rowSeq))
-    colnames(curData) <- paste("T", 1:ncol(curData), sep="")
-    rownames(curData) <- rowSeq
-    curData[,] <- completeData[curStartDataIdx:curEndDataIdx,] 
-    
-    ##############################
-    # Append to global data matrix app
-    data <- rbind(data, curData)
-    
-    curIndexStart <- curIndexEnd+1
-    
-    curDObj = NULL
-  }
-  ########################################
-  #convert data, index, ftime to trackdata
-  FileExtAndtrackname=paste0(signalExt,':',trackName)
-  myTrackData <- as.trackdata(data, index=index, ftime, FileExtAndtrackname)
-  
-  if(any(trackName %in% c("dft", "css", "lps", "cep"))){
-    if(!is.null(origFreq)){
-      attr(myTrackData[['data']], "fs") <- seq(0, origFreq/2, length=ncol(myTrackData[['data']]))
-      class(myTrackData[['data']]) <- c(class(myTrackData[['data']]), "spectral")
-    }else{
-      stop("no origFreq entry in spectral data file!")
-    }
-  }
-  
-  #if(!is.null(OnTheFlyFunctionName)){
-  #  close(pb)
-  #}
-  
-  return(myTrackData)
-}
+# extractTrackdata <- function(db=NULL,segmentList=NULL,trackName=NULL){
+#   schema=db[['DBconfig']]
+#   signalExt=NULL
+#   for(tr in schema[['tracks']]){
+#     if(tr[['name']]==trackName){
+#       signalExt=tr[['fileExtension']]
+#     }
+#   }
+#   signalExtPatt=paste0('[.]',signalExt,'$')
+#   currentUtt=''
+#   currentAsspObj=NULL
+#   utts=segmentList[['utts']]
+#   
+#   index <- matrix(ncol=2, nrow=length(utts))
+#   colnames(index) <- c("start","end")
+#   
+#   ftime <- matrix(ncol=2, nrow=length(utts))
+#   colnames(ftime) <- c("start","end")
+#   
+#   data <- NULL
+#   origFreq <- NULL
+#   
+#   #########################
+#   # LOOP OVER UTTS
+#   curIndexStart = 1
+#   for (i in 1:length(utts)){
+#     
+#     un=segmentList[['utts']][[i]]
+#     if(currentUtt!=un){
+#       #cat("Utt: ",un,"\n")
+#       u=get.bundle(db,un)
+#       for(sp in u[['signalpaths']]){ 
+#         if(length(grep(signalExtPatt,sp))==1){
+#           #cat("Signal path: ",sp,"\n")
+#           currentAsspObj=read.AsspDataObj(sp)
+#         }
+#       }
+#     }
+#     # we should have the corresponding (complete) ASSP data obj for the segment here
+#     completeData=currentAsspObj[[trackName]] 
+#     ncols=ncol(completeData) 
+#     if(is.null(data)){
+#       data <- matrix(ncol=ncols, nrow=0)
+#     }
+#     
+#     sampleRate=attr(currentAsspObj,"sampleRate")
+#     #cat("Cols: ",ncols,"\n")
+#     origFreq <- attr(currentAsspObj, "origFreq")
+#     
+#     curStart <- segmentList[['start']][i]
+#     curEnd <- segmentList[['end']][i]
+#     
+#     fSampleRateInMS <- (1/sampleRate)*1000
+#     fStartTime <- attr(currentAsspObj,"startTime")*1000
+#     #cat("Seq: ",fStartTime, curEnd, fSampleRateInMS,"\n")
+#     timeStampSeq <- seq(fStartTime, curEnd, fSampleRateInMS)
+#     ###########################################
+#     # search for first item larger than start time
+#     breakVal <- -1
+#     for (j in 1:length(timeStampSeq)){
+#       if (timeStampSeq[j] >= curStart){
+#         breakVal <- j
+#         break
+#       }
+#     }
+#     curStartDataIdx <- breakVal
+#     curEndDataIdx <- length(timeStampSeq)
+#     
+#     ####################
+#     # set index and ftime
+#     curIndexEnd <- curIndexStart+curEndDataIdx-curStartDataIdx
+#     index[i,] <- c(curIndexStart, curIndexEnd)
+#     ftime[i,] <- c(timeStampSeq[curStartDataIdx], timeStampSeq[curEndDataIdx])
+#     
+#     #############################
+#     # calculate size of and create new data matrix
+#     #tmpData <- eval(parse(text=paste("curDObj$",colName,sep="")))
+#     
+#     
+#     rowSeq <- seq(timeStampSeq[curStartDataIdx],timeStampSeq[curEndDataIdx], fSampleRateInMS) 
+#     curData <- matrix(ncol=ncol(completeData), nrow=length(rowSeq))
+#     colnames(curData) <- paste("T", 1:ncol(curData), sep="")
+#     rownames(curData) <- rowSeq
+#     curData[,] <- completeData[curStartDataIdx:curEndDataIdx,] 
+#     
+#     ##############################
+#     # Append to global data matrix app
+#     data <- rbind(data, curData)
+#     
+#     curIndexStart <- curIndexEnd+1
+#     
+#     curDObj = NULL
+#   }
+#   ########################################
+#   #convert data, index, ftime to trackdata
+#   FileExtAndtrackname=paste0(signalExt,':',trackName)
+#   myTrackData <- as.trackdata(data, index=index, ftime, FileExtAndtrackname)
+#   
+#   if(any(trackName %in% c("dft", "css", "lps", "cep"))){
+#     if(!is.null(origFreq)){
+#       attr(myTrackData[['data']], "fs") <- seq(0, origFreq/2, length=ncol(myTrackData[['data']]))
+#       class(myTrackData[['data']]) <- c(class(myTrackData[['data']]), "spectral")
+#     }else{
+#       stop("no origFreq entry in spectral data file!")
+#     }
+#   }
+#   
+#   #if(!is.null(OnTheFlyFunctionName)){
+#   #  close(pb)
+#   #}
+#   
+#   return(myTrackData)
+# }
 
 
 
@@ -1649,37 +1713,42 @@ store<-function(dbName=NULL,targetDir,dbUUID=NULL,options=NULL,showProgress=TRUE
       pFilter=emuR.persist.filters.bundle
       bp=marshal.for.persistence(b,pFilter)
       
-      for(sf in b[['signalpaths']]){
-        #cat("Signalpath: ",sf,"\n")
-        bn=basename(sf)
-        nsfp=file.path(bfp,bn)
-        # check if SSFF type
-        isSSFFFile=FALSE
-        for(ssffTrDef in db[['DBconfig']][['ssffTrackDefinitions']]){
-          ssffTrFileExt=ssffTrDef[['fileExtension']]
-          fileExtPatt=paste0('[.]',ssffTrFileExt,'$')
-          if(length(grep(fileExtPatt,sf))==1){
-            isSSFFFile=TRUE
-            break
-          }
+      # store or link media file
+      mfPath=get_media_file_path(db,b)
+      mfBn=basename(mfPath)
+      newMfPath=file.path(bfp,mfBn)
+      if(file.exists(mfPath)){
+        if(mergedOptions[['symbolicLinkSignalFiles']]){
+          file.symlink(from=mfPath,to=newMfPath)
+        }else{
+          file.copy(from=mfPath,to=newMfPath)
         }
-        if(file.exists(sf)){
+      }else{
+        stop("Media file :'",mfPath,"' does not exist!")
+      }
+      
+      # store or link SSFF tracks
+      for(ssffTrDef in db[['DBconfig']][['ssffTrackDefinitions']]){
+        ssffTrFileExt=ssffTrDef[['fileExtension']]
+        trPath=get_ssfftrack_file_path(db,b,ssffTrackExt = ssffTrFileExt)
+        trBn=basename(trPath)
+        # build path for copy
+        newTrPath=file.path(bfp,trBn)
+        if(file.exists(trPath)){
           if(mergedOptions[['symbolicLinkSignalFiles']]){
-            file.symlink(from=sf,to=nsfp)
-          }else if(mergedOptions[['rewriteSSFFTracks']] && isSSFFFile){
-            # is SSFF track
+            # link to original file
+            file.symlink(from=trPath,to=newTrPath)
+          }else if(mergedOptions[['rewriteSSFFTracks']]){
             # read/write instead of copy to get rid of big endian encoded SSFF files (SPARC)
-            pfAssp=read.AsspDataObj(sf)
-            write.AsspDataObj(pfAssp,nsfp)
-            #cat("Rewritten SSFF: ",sf," to ",nsfp,"\n")
+            pfAssp=read.AsspDataObj(trPath)
+            write.AsspDataObj(pfAssp,newTrPath)
           }else{
-            # media file (likely a wav file)
-            file.copy(from=sf,to=nsfp)
-            #cat("Copied: ",sf," to ",nsfp,"\n")
+            # copy
+            file.copy(from=trPath,to=newTrPath)
           }
         }else{
           if(!mergedOptions[['ignoreMissingSSFFTrackFiles']]){
-            stop("SSFF track file :'",sf,"' does not exist!")
+            stop("SSFF track file :'",trPath,"' does not exist!")
           }
         }
       }
@@ -1790,8 +1859,10 @@ load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
   schema=load.emuDB.DBconfig(dbCfgPath)
   # set transient values
   schema=.update.transient.schema.values(schema)
+  # normalize base path
+  basePath = normalizePath(databaseDir)
   # create db object
-  db=create.database(name = schema[['name']], basePath = normalizePath(databaseDir),DBconfig = schema)
+  db=create.database(name = schema[['name']],basePath=basePath ,DBconfig = schema)
   
   dbUUID = schema$UUID
   
@@ -1801,12 +1872,12 @@ load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
   
   # add new connection
   if(inMemoryCache){
-    con = dbConnect(RSQLite::SQLite(), ":memory:")
-    con = add_emuDBcon(con)
+    handle = add_emuDBhandle(basePath)
+    con=handle$connection
   }else{
     dbPath = file.path(normalizePath(databaseDir), paste0(schema$name, database.cache.suffix))
-    con = dbConnect(RSQLite::SQLite(), dbPath)
-    con = add_emuDBcon(con, dbPath)
+    handle = add_emuDBhandle(basePath, dbPath)
+    con=handle$connection
   }
   
   #   beginRes=dbBegin(con)
@@ -1816,11 +1887,6 @@ load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
   dbsDf=dbGetQuery(con,paste0("SELECT * FROM emuDB WHERE uuid='",schema[['UUID']],"'"))
   if(nrow(dbsDf)>0){
     # stop("EmuDB '",dbsDf[1,'name'],"', UUID: '",dbsDf[1,'uuid'],"' already loaded!")
-    # update basepath in case we are dealing with a copy
-    dbGetQuery(con, paste0("UPDATE emuDB SET basePath = '", normalizePath(databaseDir) , "' ",
-                           "WHERE uuid = '", dbUUID, "'"))
-    
-    
     update_cache(schema[['name']], dbUUID = dbUUID, verbose = verbose)
     return(schema$name)
   }
@@ -1883,7 +1949,6 @@ load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
       bundleFilePattern=paste0('^',bName,'.*$')
       bfs=list.files(absBd,pattern=bundleFilePattern)
       
-      signalpaths=list()
       bundle=NULL
       for(bf in bfs){
         annotFile=paste0(bName,bundle.annotation.suffix,'.json')
@@ -1899,16 +1964,13 @@ load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
           bundle=as.bundle(bundle)
           namedLevels=set.list.names(bundle[['levels']],'name')
           bundle[['levels']]=namedLevels
-          bundle[['mediaFilePath']]=file.path(absBd,bundle[['annotates']])
+          #bundle[['mediaFilePath']]=file.path(absBd,bundle[['annotates']])
         }else{
           
           for(ssffTr in schema[['ssffTrackDefinitions']]){
             ssffExt=ssffTr[['fileExtension']]
             ssffFn=paste0(bName,'.',ssffExt)
-            
-            if(ssffFn==bf){
-              signalpaths[[length(signalpaths)+1L]]=absBf
-            }
+            # TODO is this loop still necessary
           }
           
         }
@@ -1916,11 +1978,6 @@ load_emuDB <- function(databaseDir, inMemoryCache = FALSE, verbose=TRUE){
       bundle[['db_UUID']]=schema[['UUID']]
       # set session name
       bundle[['session']]=sessionName
-      
-      # add media file path to signalpaths
-      sps=list(bundle[['mediaFilePath']])
-      sps=c(sps,signalpaths)
-      bundle[['signalpaths']]=sps
       
       schema=db[['DBconfig']]
       #maxLbls=db[['DBconfig']][['maxNumberOfLabels']]
@@ -2048,9 +2105,10 @@ is.emuDB.loaded<-function(dbName=NULL,dbUUID=NULL){
 }
 
 ##' Reload EMU database
-##' @description Reload an EMU database from disk storage
+##' @description Reload EMU database from disk storage
 ##' @param dbName name of emuDB
 ##' @param dbUUID optional UUID of EmuDB
+##' @export
 ##' @author Klaus Jaensch
 ##' @seealso \code{\link{load_emuDB}}
 ##' @keywords emuDB database Emu
@@ -2062,9 +2120,12 @@ is.emuDB.loaded<-function(dbName=NULL,dbUUID=NULL){
 ##' }
 
 reload_emuDB<-function(dbName,dbUUID=NULL){
+  dbUUID=get_emuDB_UUID(dbName=dbName,dbUUID = dbUUID)
   db=.load.emuDB.DBI(uuid = dbUUID,name=dbName)
+  dbHandle=get_emuDBhandle(dbUUID)
+  basePath=dbHandle[['basePath']]
   purge_emuDB(dbName = dbName,dbUUID=dbUUID,interactive=FALSE)
-  load_emuDB(db[['basePath']])
+  load_emuDB(basePath)
   return(invisible(NULL))
 }
 
@@ -2144,7 +2205,8 @@ rewrite.allAnnots.emuDB <- function(dbName, dbUUID=NULL, showProgress=TRUE){
   
   # get UUID (also checks if DB exists)
   dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
-  basePath = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT basePath FROM emuDB WHERE uuid='", dbUUID, "'"))
+  handle=get_emuDBhandle(dbUUID = dbUUID)
+  basePath=handle$basePath
   bndls = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT * FROM bundle WHERE db_uuid='", dbUUID, "'"))
   
   progress = 0
@@ -2199,8 +2261,10 @@ list_bundleFilePaths <- function(dbName, fileExtention,
          sessionPattern, "' and the bundlePattern '", bundlePattern, "'")
   }
   
-  res = dbGetQuery(get_emuDBcon(uuid), paste0("SELECT basePath FROM emuDB WHERE uuid='", uuid, "'"))
-  fp = file.path(res$basePath, paste0(postPatternBndls$session,'_ses'), paste0(postPatternBndls$name, '_bndl'), paste0(postPatternBndls$name, '.', fileExtention))
+  #res = dbGetQuery(get_emuDBcon(uuid), paste0("SELECT basePath FROM emuDB WHERE uuid='", uuid, "'"))
+  dbHandle=get_emuDBhandle(uuid)
+  
+  fp = file.path(dbHandle$basePath, paste0(postPatternBndls$session,'_ses'), paste0(postPatternBndls$name, '_bndl'), paste0(postPatternBndls$name, '.', fileExtention))
   
   # return only files that exist (should maybe issue warning)
   fpExist = fp[file.exists(fp)]
@@ -2209,6 +2273,7 @@ list_bundleFilePaths <- function(dbName, fileExtention,
 }
 
 # Test
+
 
 #######################
 # FOR DEVELOPMENT
