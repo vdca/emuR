@@ -109,7 +109,7 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
     con=handle$connection
   }else{
     dbPath = file.path(normalizePath(databaseDir), paste0(schema$name, database.cache.suffix))
-    handle = add_emuDBhandle(basePath, dbPath)
+    handle = add_emuDBhandle(name = db$name, basePath = basePath, dbUUID = dbUUID, path = dbPath)
     con=handle$connection
   }
   
