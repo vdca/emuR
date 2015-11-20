@@ -25,6 +25,7 @@ Imports:
     sqldf (>= 0.4.9),
     httpuv (>= 1.3.2),
     base64enc,
+    Rcpp,
     data.table (>= 1.9.4)
 Suggests:
     testthat(>= 0.7.1.99),
