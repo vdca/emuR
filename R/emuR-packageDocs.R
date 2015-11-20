@@ -1,10 +1,10 @@
-##' emuR - Main package of the EMU Speech Database Management System
+##' emuR - Main Package of the EMU Speech Database Management System
 ##' 
 ##' The emuR package provides the next iteration of the EMU Speech 
 ##' Database Management System with database management, data 
 ##' extraction, data preparation and data visualization facilities. 
 ##' It also contains a server that 
-##' is intended to host databases in the emuDB format (see \code{vignette('emuDB_intro')}) to the EMU-webApp 
+##' is intended to host databases in the emuDB format (see \code{vignette('emuDB')}) to the EMU-webApp 
 ##' (\url{http://ips-lmu.github.io/EMU-webApp/}). The querying of annotations is 
 ##' performed using EMU's own EQL2 (EMU Query Language Version 2).
 ##' 
@@ -12,7 +12,10 @@
 ##' which aims to be as close to an all-in-one solution for generating, manipulating, querying, 
 ##' analyzing and managing speech databases as possible. 
 ##' For an overview of the system please visit this URL: \url{http://ips-lmu.github.io/EMU.html}.
-##'  
+##'
+##' For an introduction to the emuR package please see the emuR_intro 
+##' by calling: vignette b\code{vignette('emuR_intro')} 
+##'    
 ##' Typical work-flow in emuR (emuDB required):
 ##' 
 ##' \enumerate{
@@ -20,8 +23,8 @@
 ##' \item Database annotation / visual inspection - \code{\link{serve}} and connect the EMU-webApp to the local server
 ##' \item Query database - \code{\link{query}} (sometimes followed by \code{\link{requery_hier}} or \code{\link{requery_seq}})
 ##' \item Get trackdata (e.g. formant values) for the result of a query - \code{\link{get_trackdata}}
-##' \item Data preparation - \code{\link{dcut}}, \code{\link{mel}}
-##' \item Visual data inspection - \code{\link{plot}}, \code{\link{dplot}}, \code{\link{eplot}}
+##' \item Data preparation
+##' \item Visual data inspection
 ##' \item Further analysis and statistical processing
 ##' }
 ##' 

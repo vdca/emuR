@@ -24,7 +24,7 @@ test_that("function get.legacy.file.path()",{
 
 test_that("Purge example database ae",{
   if(is.emuDB.loaded(dbUUID=.test_emu_ae_db_uuid)){
-    purge_emuDB(dbName='ae',dbUUID=.test_emu_ae_db_uuid,interactive=FALSE)
+    purge_emuDB(dbUUID=.test_emu_ae_db_uuid,interactive=FALSE)
   }
 })
 
@@ -66,13 +66,34 @@ test_that("Load example database ae",{
 
 test_that("Reload example database ae",{
   bp=file.path(.test_emu_ae_db_dir, 'ae')
-  reload_emuDB('ae')
+  #reload_emuDB(dbUUID = .test_emu_ae_db_uuid)
+  load_emuDB(bp, inMemoryCache = internalVars$testingVars$inMemoryCache, verbose=FALSE)
   check_properties_of_ae_db()
 })
 
+test_that("Create emuDB from scratch works",{
+  if(is.emuDB.loaded('create_emuDB_test1')){
+    purge_emuDB('create_emuDB_test1',interactive = F)
+  }
+  create_emuDB('create_emuDB_test1',tempdir())
+  t1BasePath=file.path(tempdir(),'create_emuDB_test1')
+  t1=load_emuDB(t1BasePath)
+  expect_that(t1,is_equivalent_to('create_emuDB_test1'))
+ 
+  expect_true('create_emuDB_test1' %in% list_emuDBs()[,'name'])
+  sss=list_emuDBs()[['name']]=='create_emuDB_test1'
+  
+  t1List=list_emuDBs()[sss,]
+  expect_that(nrow(t1List),is_equivalent_to(1))
+  expect_that(normalizePath(t1List[1,'basePath']),is_equivalent_to(normalizePath(t1BasePath)))
+  
+  purge_emuDB('create_emuDB_test1',interactive = F)
+  unlink(t1BasePath,recursive = T)
+  })
+
 test_that("Data types are correct",{
-  dbUUID = get_emuDB_UUID("ae")
-  items=dbReadTable(get_emuDBcon(dbUUID),'items')
+  #dbUUID = get_emuDB_UUID("ae")
+  items=dbReadTable(get_emuDBcon(.test_emu_ae_db_uuid),'items')
   
   expect_that(class(items[['seqIdx']]),is_equivalent_to('integer'))
   expect_that(class(items[['itemID']]),is_equivalent_to('integer'))
@@ -81,10 +102,10 @@ test_that("Data types are correct",{
   expect_that(class(items[['sampleStart']]),is_equivalent_to('integer'))
   expect_that(class(items[['sampleDur']]),is_equivalent_to('integer'))
   
-  labels=dbReadTable(get_emuDBcon(dbUUID),'labels')
+  labels=dbReadTable(get_emuDBcon(.test_emu_ae_db_uuid),'labels')
   expect_that(class(labels[['labelIdx']]),is_equivalent_to('integer'))
   
-  links=dbReadTable(get_emuDBcon(dbUUID),'links')
+  links=dbReadTable(get_emuDBcon(.test_emu_ae_db_uuid),'links')
   expect_that(class(links[['fromID']]),is_equivalent_to('integer'))
   expect_that(class(links[['toID']]),is_equivalent_to('integer'))
 })
@@ -156,7 +177,8 @@ test_that("Test ae samples",{
 })
 
 test_that("Test ae modify",{
-  dbUUID = get_emuDB_UUID("ae")
+  #dbUUID = get_emuDB_UUID("ae")
+  dbUUID=.test_emu_ae_db_uuid
   orgItems=dbGetQuery(get_emuDBcon(dbUUID),paste0("SELECT * FROM items WHERE db_uuid='",.test_emu_ae_db_uuid,"'"))
   orgLabels=dbGetQuery(get_emuDBcon(dbUUID),paste0("SELECT * FROM labels WHERE db_uuid='",.test_emu_ae_db_uuid,"'"))
   orgLinks=dbGetQuery(get_emuDBcon(dbUUID),paste0("SELECT * FROM links WHERE db_uuid='",.test_emu_ae_db_uuid,"'"))
@@ -347,6 +369,6 @@ test_that("Test ae modify",{
 
 # 
 test_that("purge & delete",{
-  purge_emuDB(dbName='ae',dbUUID=.test_emu_ae_db_uuid,interactive=FALSE)
+  purge_emuDB(dbUUID=.test_emu_ae_db_uuid,interactive=FALSE)
   unlink(.test_emu_ae_db_dir, recursive = T)
 })

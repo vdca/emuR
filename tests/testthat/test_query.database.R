@@ -15,15 +15,18 @@ path2testhatFolder = file.path(tempdir(),"emuR_testthat")
 
 
 # purge ae if loaded to make tests work
-if(is.emuDB.loaded("ae")){
-  UUID = get_emuDB_UUID(dbName = "ae")
-  .purge.emuDB(UUID)
+if(is.emuDB.loaded(dbUUID=.test_emu_ae_db_uuid)){
+  #UUID = get_emuDB_UUID(dbName = "ae")
+  purge_emuDB(dbUUID = .test_emu_ae_db_uuid,interactive = F)
 }
 
 
 test_that("Purge example database ae",{
   if(is.emuDB.loaded(dbUUID=.test_emu_ae_db_uuid)){
-    purge_emuDB(dbName='ae',dbUUID=.test_emu_ae_db_uuid,interactive=FALSE)
+    purge_emuDB(dbUUID=.test_emu_ae_db_uuid,interactive=FALSE)
+  }
+  if(is.emuDB.loaded('ae')){
+    purge_emuDB('ae',interactive=FALSE)
   }
 })
 test_that("Convert example database ae",{
@@ -73,7 +76,7 @@ test_that("Query labels",{
   expect_that('[.data.frame'(sl1,1,'utts'),is_identical_to(I('0000:msajc057')))
 })
 
-test_that("Query label groups",{
+test_that("Query level label groups",{
   
   
   sl1=query('ae',"Phoneme=nasal",resultType='emusegs')
@@ -82,6 +85,14 @@ test_that("Query label groups",{
   sl2=query('ae',"Phonetic=nasal",resultType='emusegs')
   # TODO check some items
   expect_that(nrow(sl2),equals(19))
+})
+
+test_that("Query database label groups",{
+  
+  add_labelGroup('ae','testGroup1',c('p','r'))
+  sl1=query('ae',"Phoneme=testGroup1")
+  expect_that(nrow(sl1),equals(11))
+  
 })
 
 # 

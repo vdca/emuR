@@ -1,11 +1,11 @@
 Package: emuR
-Version: 0.0.10
-Title: Main package of the EMU Speech Database Management System
-Authors@R: as.person(c(
-    "Raphael Winkelmann <raphael@phonetik.uni-muenchen.de> [aut, cre]",
-    "Klaus Jaensch <klausj@phonetik.uni-muenchen.de> [aut, ctb]",
-    "Steve Cassidy <steve.cassidy@mq.edu.au> [aut, ctb]",
-    "Jonathan Harrington <jmh@phonetik.uni-muenchen.de> [aut, ctb]"))
+Version: 0.0.13
+Title: Main Package of the EMU Speech Database Management System
+Authors@R: c(
+    person("Raphael", "Winkelmann", , "raphael@phonetik.uni-muenchen.de", c("aut", "cre")),
+    person("Klaus", "Jaensch", , "klausj@phonetik.uni-muenchen.de", c("aut", "ctb")),
+    person("Steve", "Cassidy", , "steve.cassidy@mq.edu.au", c("aut", "ctb")),
+    person("Jonathan", "Harrington", , "jmh@phonetik.uni-muenchen.de", c("aut", "ctb")))
 Description: Provides many special purpose functions for display and analysis
     of speech data.
 License: GPL (>= 2)
@@ -25,16 +25,16 @@ Imports:
     sqldf (>= 0.4.9),
     httpuv (>= 1.3.2),
     base64enc,
-    data.table (>= 1.9.6),
-    Rcpp
+    data.table (>= 1.9.4)
 Suggests:
     testthat(>= 0.7.1.99),
     knitr(>= 1.7),
-    compare(>= 0.2.4)
+    compare(>= 0.2.4),
+    ggplot2(>= 1.0.1)
 LinkingTo: Rcpp
 LazyLoad: yes
 LazyData: yes
 ZipData: no
 URL: https://github.com/IPS-LMU/emuR
 BugReports: https://github.com/IPS-LMU/emuR/issues
-RoxygenNote: 5.0.0
+RoxygenNote: 5.0.1

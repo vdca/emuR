@@ -47,11 +47,11 @@ emuR.regexprl<-function(pattern,x){
   return((m==1) & (attr(m,'match.length')==nchar(x)))
 }
 
-write_table_forced<-function(name,value){
-  if(dbExistsTable(get_emuDBcon(),name)){
-    dbRemoveTable(get_emuDBcon(),name)
+write_table_forced<-function(dbUUID,name,value){
+  if(dbExistsTable(get_emuDBcon(dbUUID),name)){
+    dbRemoveTable(get_emuDBcon(dbUUID),name)
   }
-  dbWriteTable(get_emuDBcon(),name = name,value=value)
+  dbWriteTable(get_emuDBcon(dbUUID),name = name,value=value)
 }
 
 check_level_attribute_name<-function(dbConfig,name){
@@ -458,7 +458,7 @@ query.database.eql.ETTIKETTA<-function(dbConfig,q,labels=NULL){
           label=substr(labelAlt,2,lblTrimLen-1)
           labelAltsUq=c(labelAltsUq,label)
         }else{
-          # check for labelGroup
+          # check for labelGroup on level
           lvlDefs=dbConfig[['levelDefinitions']]
           isLabelGroup=FALSE
           for(lvlDef in lvlDefs){
@@ -472,8 +472,23 @@ query.database.eql.ETTIKETTA<-function(dbConfig,q,labels=NULL){
                       labelAltsUq=c(labelAltsUq,lblGrpVal)
                     }
                     isLabelGroup=TRUE
+                    break
                   }
                 }
+              }
+            }
+          }
+          if(!isLabelGroup){
+            # check for database labelGroup
+            dbLblGrps=dbConfig$labelGroups
+            for(dbLblGrp in dbLblGrps){
+              if(labelAlt==dbLblGrp[['name']]){
+                # is label group, expand
+                for(dbLblGrpVal in dbLblGrp[['values']]){
+                  labelAltsUq=c(labelAltsUq,dbLblGrpVal)
+                }
+                isLabelGroup=TRUE
+                break
               }
             }
           }
@@ -881,11 +896,15 @@ query.database.with.eql<-function(dbConfig,query){
   stop("Unknown syntax error.")
 }
 
-##' Query EMU database
-##' @description Query an EMU database
-##' @details Evaluates EQL2 query string on emuDB and returns a segment list of desired type.  
-##' For details of the query language please refer to EQL vignette (type: \code{vignette('EQL')} ). 
-##' Time information of symbolic elements (type 'ITEM') are derived from linked segment levels if available. If not available time and sample values may be set to \code{\link{NA}}.
+##' Query emuDB
+##' @description Function to query an emuDB
+##' @details Evaluates EQL2 query string on an emuDB referenced by dbName and returns a segment list of desired type.  
+##' For details of the query language please refer to EQL vignette (type: \code{vignette('EQL')} ).
+##' Returns a list of segments which meet the conditions given by the query string. A segment is determined by a start and end item. Segments with item length one have the same start and end item.
+##' Segment objects contain the start and end time information of the segment. \link{emuRsegs} objects additionally contain sample position of start and end item. 
+##' Time information of symbolic elements (type 'ITEM') are derived from linked segment levels if available. If time and sample values cannot be derived they will be set to \code{\link{NA}}.
+##' \link{emuRsegs} result lists will be ordered by the hidden columns UUID,session,bundle and sample start position. Legacy \link{emusegs} lists are ordered by the columns utts and start.
+##' The query may be limited to session and/or bundle names specified by regular expression pattern strings (see \link{regex}) for parameters \code{sessionPattern} respectively \code{bundlePattern}.
 ##' @param dbName name of EMU database
 ##' @param query EQL2 query string
 ##' @param sessionPattern A regular expression pattern matching session names to be searched from the database
