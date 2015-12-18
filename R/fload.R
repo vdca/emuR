@@ -2,7 +2,7 @@
 finsert_bundle <- function(dbName, annotFilePath, sessionName, 
                            bundleName, dbUUID = NULL) {
   
-  dbUUID = get_emuDB_UUID(dbName, dbUUID)
+  dbUUID = get_UUID(dbName, dbUUID)
   con = get_emuDBcon(dbUUID)
   
   bundle = jsonlite::fromJSON(normalizePath(annotFilePath), simplifyVector = FALSE)
@@ -200,7 +200,7 @@ fload_emuDB <- function(databaseDir, inMemoryCache = TRUE, verbose=TRUE){
 fupdate_cache <- function(dbName, dbUUID=NULL, verbose = TRUE){
   #########################
   # get dbObj
-  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  dbUUID = get_UUID(dbName = dbName, dbUUID = dbUUID)
   dbObj = .load.emuDB.DBI(uuid = dbUUID)
   
   ######################################
@@ -401,7 +401,7 @@ build_rootLeafPaths = function(dbName, dbUUID = NULL){
     }
   }
   
-  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  dbUUID = get_UUID(dbName = dbName, dbUUID = dbUUID)
   
   DBconfigJSON = dbGetQuery(get_emuDBcon(dbUUID), paste0("SELECT DBconfigJSON FROM emuDB WHERE uuid='", dbUUID,"'"))
   
@@ -424,7 +424,7 @@ build_rootLeafPaths = function(dbName, dbUUID = NULL){
 
 build_SQLviews <- function(dbName, paths, dbUUID = NULL) {
   
-  dbUUID = get_emuDB_UUID(dbName, dbUUID)
+  dbUUID = get_UUID(dbName, dbUUID)
   
   curPath = paths[[1]]
   print(curPath)

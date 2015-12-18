@@ -21,20 +21,20 @@ test_that("fload_emuDB works", {
   file.copy(path2orig, path2testData, recursive = T)
   fload_emuDB(path2db, inMemoryCache = internalVars$testingVars$inMemoryCache, verbose = F)
   
-  dbUUID = get_emuDB_UUID(dbName)
+  dbUUID = get_UUID(dbName)
 
   ################################
   # 
   test_that("all tables are populated as expected", {
     
     # items
-    qRes = dbGetQuery(get_emuDBcon(get_emuDB_UUID("ae")), "SELECT * FROM items")
+    qRes = dbGetQuery(get_emuDBcon(get_UUID("ae")), "SELECT * FROM items")
     expect_true(all(dim(qRes) == c(736, 11)))
     # labels
-    qRes = dbGetQuery(get_emuDBcon(get_emuDB_UUID("ae")), "SELECT * FROM labels")
+    qRes = dbGetQuery(get_emuDBcon(get_UUID("ae")), "SELECT * FROM labels")
     expect_true(all(dim(qRes) == c(844, 7)))
     #links
-    qRes = dbGetQuery(get_emuDBcon(get_emuDB_UUID("ae")), "SELECT * FROM links")
+    qRes = dbGetQuery(get_emuDBcon(get_UUID("ae")), "SELECT * FROM links")
     expect_true(all(dim(qRes) == c(785, 6)))
     
     
@@ -54,7 +54,7 @@ test_that("fupdate_cache works", {
   file.copy(path2orig, path2testData, recursive = T)
   fload_emuDB(path2db, inMemoryCache = internalVars$testingVars$inMemoryCache, verbose = F)
   
-  dbUUID = get_emuDB_UUID(dbName)
+  dbUUID = get_UUID(dbName)
   
   
   
