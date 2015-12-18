@@ -211,11 +211,18 @@ query.database.eql.FUNKA<-function(dbConfig,q,items=NULL){
       if(funcName=='Start' | funcName=='End' | funcName=='Medial'){
         
         if(funcValueTerm!=''){
+          # check equals operator == or =
           expEqualSign=substr(funcValueTerm,1,1)
           if(expEqualSign!='='){
-            stop("Syntax error: Expected equal sign '=' for in function term: '",qTrim,"'\n")
+            stop("Syntax error: Expected equal sign '==' for in function term: '",qTrim,"'\n")
           }
-          funcValue=str_trim(substring(funcValueTerm,2,))
+          op='='
+          funcValuePos=2
+          if(substr(funcValueTerm,2,2)=='='){
+            funcValuePos=3
+            op='=='
+          }
+          funcValue=str_trim(substring(text=funcValueTerm,first=funcValuePos))
         }else{
           stop("Syntax error: function ",funcName," requires function value in: '",qTrim,"'\n")
         }
@@ -229,7 +236,7 @@ query.database.eql.FUNKA<-function(dbConfig,q,items=NULL){
         }else if(funcValue=='1'){
           cond='='
         }else{
-          stop("Syntax error: Expected function value 0 or 1 after '=' in function term: '",qTrim,"'\n")
+          stop("Syntax error: Expected function value 0 or 1 after '",op,"' in function term: '",qTrim,"'\n")
         }
         sqlQStr=paste0("SELECT DISTINCT i.db_uuid,i.session,i.bundle,i.itemID AS seqStartId, i.itemID AS seqEndId,1 AS seqLen,'",param2,"' AS level \
                         FROM items i,allItems d \
@@ -254,7 +261,7 @@ query.database.eql.FUNKA<-function(dbConfig,q,items=NULL){
           cond='!='
           bOp='AND'
         }else{
-          stop("Syntax error: Expected function value 0 or 1 after '=' in function term: '",qTrim,"'\n")
+          stop("Syntax error: Expected function value 0 or 1 after '",op,"' in function term: '",qTrim,"'\n")
         }
         sqlQStr=paste0("SELECT DISTINCT i.db_uuid,i.session,i.bundle,i.itemID AS seqStartId, i.itemID AS seqEndId,1 AS seqLen,'",param2,"' AS level \
                        FROM items i,allItems d \
@@ -275,7 +282,7 @@ query.database.eql.FUNKA<-function(dbConfig,q,items=NULL){
         }else if(funcValue=='1'){
           cond='='
         }else{
-          stop("Syntax error: Expected function value 0 or 1 after '=' in function term: '",qTrim,"'\n")
+          stop("Syntax error: Expected function value 0 or 1 after '",op,"' in function term: '",qTrim,"'\n")
         }
         sqlQStr=paste0("SELECT DISTINCT i.db_uuid,i.session,i.bundle,i.itemID AS seqStartId, i.itemID AS seqEndId,1 AS seqLen,'",param2,"' AS level FROM \
                        items i,allItems d \
@@ -308,7 +315,7 @@ query.database.eql.FUNKA<-function(dbConfig,q,items=NULL){
           stop("Syntax error: Unknown operator and/or value for Num  function: '",funcValueTerm,"'\n")
         }
         if(funcOpr=='=='){
-          sqlRuncOpr='='
+          sqlFuncOpr='='
         }else{
           sqlFuncOpr=funcOpr
         }
@@ -935,7 +942,8 @@ query.database.with.eql<-function(dbConfig,query){
 ##' 
 ##' ## Query 'p' items of level Phoneme from bundles whose bundle names start with 'msajc07' 
 ##' ## and whose session names start with '00'
-##' ## (Note that here the query uses the operator '=' (meaning '==') which is kept for backwards compatibilty to EQL1.)  
+##' ## (Note that here the query uses the operator '=' (meaning '==') which is kept for 
+##' ##  backwards compatibilty to EQL1.)  
 ##' 
 ##' query('ae','Phoneme=p',bundlePattern='msajc05.*',sessionPattern ='00.*')
 ##' 
@@ -943,11 +951,13 @@ query.database.with.eql<-function(dbConfig,query){
 ##' }
 ##' 
 
-query<-function(dbName=NULL,query,sessionPattern=NULL,bundlePattern=NULL,queryLang='EQL2',timeRefSegmentLevel=NULL,resultType=NULL,dbUUID=NULL){
-  
+query<-function(dbName,query,sessionPattern='.*',bundlePattern='.*',queryLang='EQL2',timeRefSegmentLevel=NULL,resultType=NULL,dbUUID){
+  if(missing(dbUUID)){
+    dbUUID=get_UUID(dbName)
+  }
   if(queryLang=='EQL2'){
     # .initialize.DBI.database(createTables=FALSE)
-    dbUUID=get_emuDB_UUID(dbName,dbUUID)
+    
     db=.load.emuDB.DBI(uuid = dbUUID)
     dbConfig=db[['DBconfig']]
     # create 
@@ -956,7 +966,7 @@ query<-function(dbName=NULL,query,sessionPattern=NULL,bundlePattern=NULL,queryLa
     emuDBs.query.tmp[['queryLabels']]<-dbGetQuery(get_emuDBcon(dbConfig$UUID),paste0("SELECT * FROM labels WHERE db_uuid='",dbUUID,"'"))
     emuDBs.query.tmp[['queryLinksExt']]<-dbGetQuery(get_emuDBcon(dbConfig$UUID),paste0("SELECT * FROM linksExt WHERE db_uuid='",dbUUID,"'"))
     setQueryTmpEmuDBs(emuDBs.query.tmp)
-    if(!is.null(sessionPattern)){
+    if(!is.null(sessionPattern) && sessionPattern!='.*'){
       newTmpDBs=list()
       
       sessSelIts=emuR.regexprl(sessionPattern,getQueryTmpEmuDBs()[['queryItems']][['session']])
@@ -969,7 +979,7 @@ query<-function(dbName=NULL,query,sessionPattern=NULL,bundlePattern=NULL,queryLa
       newTmpDBs[['queryLabels']]<-getQueryTmpEmuDBs()[['queryLabels']][sessSelLbls,]
       setQueryTmpEmuDBs(newTmpDBs)
     }
-    if(!is.null(bundlePattern)){
+    if(!is.null(bundlePattern) && bundlePattern!='.*'){
       
       
       newTmpDBs=getQueryTmpEmuDBs()

@@ -4,9 +4,9 @@
 \alias{query}
 \title{Query emuDB}
 \usage{
-query(dbName = NULL, query, sessionPattern = NULL, bundlePattern = NULL,
+query(dbName, query, sessionPattern = ".*", bundlePattern = ".*",
   queryLang = "EQL2", timeRefSegmentLevel = NULL, resultType = NULL,
-  dbUUID = NULL)
+  dbUUID)
 }
 \arguments{
 \item{dbName}{name of (loaded) EMU database (see \link{load_emuDB})}
@@ -56,7 +56,8 @@ query('ae','[Syllable==S ^ Phoneme==t]',resultType='emusegs')
 
 ## Query 'p' items of level Phoneme from bundles whose bundle names start with 'msajc07' 
 ## and whose session names start with '00'
-## (Note that here the query uses the operator '=' (meaning '==') which is kept for backwards compatibilty to EQL1.)  
+## (Note that here the query uses the operator '=' (meaning '==') which is kept for 
+##  backwards compatibilty to EQL1.)  
 
 query('ae','Phoneme=p',bundlePattern='msajc05.*',sessionPattern ='00.*')
 

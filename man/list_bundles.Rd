@@ -4,7 +4,7 @@
 \alias{list_bundles}
 \title{List bundles of emuDB}
 \usage{
-list_bundles(dbName = NULL, session = NULL, dbUUID = NULL)
+list_bundles(dbName, session = NULL, dbUUID = NULL)
 }
 \arguments{
 \item{dbName}{name of emuDB}
@@ -18,5 +18,19 @@ data.frame object with columns session and name of bundles
 }
 \description{
 List all bundles of emuDB or of particular session.
+}
+\examples{
+\dontrun{
+
+##################################
+# prerequisite: loaded "ae" emuDB
+# (see ?load_emuDB for more information)
+
+# list bundles of session "0000" of "ae" emuDB
+list_bundles(dbName = "ae",
+             session = "0000")
+
+}
+
 }
 

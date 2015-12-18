@@ -10,11 +10,13 @@ setServerHandle <- function(sh) {
 
 ##' Serve EMU database to EMU-webApp
 ##' 
-##' @description Server for EMU-webApp browser GUI \url{http://ips-lmu.github.io/EMU-webApp/}
+##' @description Serves emuDB media files, SSFF tracks and annotations for EMU-webApp browser GUI \url{http://ips-lmu.github.io/EMU-webApp/}
 ##' 
-##' Start instructions:
+##' Instructions:
 ##' 
-##' Call this function to start the server. Do not forget to (re-)assign the return value to reflect changes made in the Web application: \code{myDb=serve(myDb)}.
+##' Start and connect:
+##' 
+##' Call this function to start the server.
 ##' 
 ##' Start a suitable HTML5 capable Web-Browser (Google Chrome, Firefox,...).
 ##' 
@@ -22,16 +24,24 @@ setServerHandle <- function(sh) {
 ##' 
 ##' Press the 'Connect' button in the EMU-webApp and connect with default URL.
 ##' 
-##' EMU-webApp should load the bundle list and the first bundle of the given database (object).
+##' EMU-webApp loads the bundle list and the first bundles media file, SSFF tracks and annotations.
 ##' 
-##' Stop instructions:
+##' Disconnect and stop:
 ##' 
-##' Stop the server with the 'Clear' button of the webapp or the reload button of your browser.
+##' Disconnect and stop the server with the 'Clear' button of the webapp or the reload button of your browser.
 ##' 
-##' The server can be interrupted with Ctrl-C if something wents wrong.
+##' The server can also be interrupted with Ctrl-C if something wents wrong.
 ##' 
-##' @details  Function opens a HTTP/websocket and waits in a loop for browser requests. The R console will be blocked. On successfull connection the server sends the session and bundle list of the given database object. The Web application requests bundle data for editing. If a bundle is modified with the EMU-webApp and the save button is pressed the server modifies the database object and saves the changes to disk. Communication is defined by EMU-webApp-websocket-protocol version 0.0.2
+##' To serve only a subset of sessions or bundles use the parameters \code{sessionPattern} and/or \code{bundlePattern}.
+##' 
+##' @details  Function opens a HTTP/websocket and waits in a loop for browser requests. Parameter host determines the IP address(es) of hosts allowed to connect to the server. By default the server only listens to localhost. If you want to allow connection from any host set the host parameter to \code{0.0.0.0}. Please note that this might be an safety issue! The \code{port} parameter determines the port the server listens on. The \code{host} and \code{port} parameters are intended only for expert users. When started the R console will be blocked. On successfull connection the server sends the session and bundle list of the database referenced by name by parameter \code{dbName} or by UUID parameter \code{dbUUID}.
+##' The Web application requests bundle data for viewing or editing. If a bundle is modified with the EMU-webApp and the save button is pressed the server modifies the internal database and saves the changes to disk.
+##' Communication between server and EMU webApp is defined by EMU-webApp-websocket-protocol version 0.0.2.
+##' 
 ##' @param dbName name of a loaded EMU database
+##' @param sessionPattern A regular expression pattern matching session names to be served
+##' @param bundlePattern A regular expression pattern matching bundle names to be served
+##' @param dbUUID optional UUID of emuDB, if the emuDB name in the input segment list is not unique
 ##' @param host host IP to listen to (default: 127.0.0.1  (localhost))
 ##' @param port the port number to listen on (default: 17890)
 ##' @param debug TRUE to enable debugging (default: no debugging messages)
@@ -49,17 +59,26 @@ setServerHandle <- function(sh) {
 ##' serve('myDb')
 ##' }
 ##' 
-serve=function(dbName,host='127.0.0.1',port=17890,debug=FALSE,debugLevel=0){
+serve=function(dbName,sessionPattern='.*',bundlePattern='.*',dbUUID=NULL,host='127.0.0.1',port=17890,debug=FALSE,debugLevel=0){
   if(debug && debugLevel==0){
     debugLevel=2
   }
   modified=FALSE
   emuDBserverRunning=FALSE
   bundleCount=0
-  dbUUID=get_emuDB_UUID(dbName=dbName)
+  dbUUID=get_UUID(dbName=dbName,dbUUID = dbUUID)
   database=.load.emuDB.DBI(uuid = dbUUID)
   if(!is.null(dbUUID)){
-    bundlesDf=list_bundles(dbUUID = dbUUID)
+    allBundlesDf=list_bundles(dbUUID = dbUUID)
+    bundlesDf=allBundlesDf
+    if(!is.null(sessionPattern) && sessionPattern!='.*'){
+      ssl=emuR.regexprl(sessionPattern,bundlesDf[['session']])
+      bundlesDf=bundlesDf[ssl,]
+    }
+    if(!is.null(bundlePattern) && bundlePattern!='.*'){
+      bsl=emuR.regexprl(bundlePattern,bundlesDf[['name']])
+      bundlesDf=bundlesDf[bsl,]
+    }
   }else{
     stop("Emu database ",dbName, " not found!");
   }

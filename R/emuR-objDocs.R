@@ -25,47 +25,44 @@ NULL
 
 ##' emuR segment list
 ##' @description
-##' A segment list is a list of segment descriptors. A segment descriptor describes a sequence of annotation elements.
+##' An emuR segment list is a list of segment descriptors. Each segment descriptor describes a sequence of annotation elements. The list is usually a result of an emuDB query using function \code{\link{query}}.
 ##' 
 ##' @details
-##' 
+##' Each row shows the annotation label sequence, the start and end position in time, session and bundle names, level name and type.
+##' Additionally the row contains the UUID of the emuDB, the ID's of start and end elements and the corresponding start and end position as sample count and the sample rate.
+##' These columns are not printed by default. The print method of emuRsegs hides them. To print all columns of a segment list object use the print method of \code{\link{data.frame}}.
+##' For example to print all columns of an emuRsegs segmentlist \code{sl} type:
+##' \code{print.data.frame(sl)}
+##' Though the segment descriptors have references to the annotations, the label and sample/time position information is not updated if any of them change. The values of the segment list may get invalid if the the database is modified.
+##' A segment may consist only of one single element, in this case start and end ID are equal.
 ##' An emuR segment list is the default result of \code{\link{query}} and can be used to get track data using \code{\link{get_trackdata}}.
-##' Inherits class \link{emusegs} and hence \code{\link{data.frame}}
+##' The emuRsegs class inherits \link{emusegs} and hence \code{\link{data.frame}}
 ##' 
 ##' @aliases segment list emuRsegs
 ##'
-##' @format Attributed data.frame, one row per segment.
+##' @format Attributed data.frame, one row per segment descriptor.
 ##' 
-##' Objects of this class contain the ID's of start and end elements.
-##' The segment may consist only of one single element, in this case start and end ID are equal.
-##' 
-##'  
 ##' Data frame columns are:
 ##' \itemize{ 
 ##'   \item labels: sequenced labels of segment concatenated by '->'
-##'   \item start: onset time
-##'   \item end: offset time 
+##'   \item start: onset time in milliseconds
+##'   \item end: offset time in milliseconds
 ##'   \item session: session name
 ##'   \item bundle: bundle name
-##'   \item startItemID: item ID of first element of sequence
-##'   \item endItemID: item ID of last element of sequence
+##'   \item level: level name
 ##'   \item type: type of "segment" row: 'ITEM': symbolic item, 'EVENT': event item, 'SEGMENT': segment
 ##'
 ##' }
 ##' Additional hidden columns:
 ##' \itemize{
-##'  \item utts utterance name (for compatibility to \link{emusegs} class)
-##'  \item db_uuid UUID of emuDB
-##'  \item level name of level
-##'  \item sampleStart start sample
-##'  \item sampleEnd end sample
-##'  \item sampleRate sample rate
+##'  \item utts: utterance name (for compatibility to \link{emusegs} class)
+##'  \item db_uuid: UUID of emuDB
+##'  \item startItemID: item ID of first element of sequence
+##'  \item endItemID: item ID of last element of sequence
+##'  \item sampleStart: start sample position
+##'  \item sampleEnd: end sample position
+##'  \item sampleRate: sample rate
 ##' }
-##' The print method of emuRsegs hides the columns listed above.
-##' To print all columns of a segment list object use the print method of data.frame.
-##' For example to print all columns of a emuRsegs segmentlist object \code{sl} type:
-##' 
-##' \code{print.data.frame(sl)}
 ##' 
 ##' Attributes:
 ##' \itemize{
@@ -168,3 +165,40 @@ NULL
 ##' 
 NULL
 
+##' emuR track data object
+##' 
+##' A emuR track data object is the result of \code{\link{get_trackdata}} if the 
+##' \code{resultType} parameter is set to \code{"emuRtrackdata"} or the result of 
+##' an explicit call to \code{\link{create_emuRtrackdata}}. Compared to 
+##' the \code{\link{trackdata}} object it is a sub-class of a \code{\link{data.table}}
+##' / \code{\link{data.frame}} which is meant to ease integration with other
+##' packages for further processing. It can be viewed as an amalgamation of
+##' a \code{\link{emuRsegs}} and a \code{\link{trackdata}} object as it
+##' contains the information stored in both objects.
+##' 
+##' 
+##' @format The \code{\link{data.table}} / \code{\link{data.frame}} has the following columns:
+##' 
+##' \describe{
+##'   \item{$sl_rowIdx}{column to indicate \code{\link{emuRsegs}} row index that 
+##'                     the value belongs to}
+##'   \item{$labels - $sampleRate}{duplicated information of \code{\link{emuRsegs}} row entries}
+##'   \item{$times_rel}{relative time stamps of sample values in milliseconds}
+##'   \item{$times_orig}{absolute time stamps of sample values in milliseconds}
+##'   \item{$T1 - $TN}{actual data values (e.g. formant values / F0 values / DFT values / ...)}
+##' }
+##' 
+##' Note that $labels - $sampleRate as well as $T1 - $TN (where the N in TN is to be read as the n-th T value) 
+##' refer to multiple columns of the object.
+##' 
+##' @section Methods: The following methods are implemented for emuRtrackdata objects: 
+##' 
+##' \describe{ 
+##'   \item{cut}{Function to extract a \code{\link{emuRtrackdata}} object from an emuRtrackdata at a single time point 
+##'             or between two times}
+##' }
+##' @seealso \code{\link{get_trackdata}}, \code{\link{create_emuRtrackdata}}
+##' @keywords classes
+##' @name emuRtrackdata
+##' @seealso trackdata
+NULL

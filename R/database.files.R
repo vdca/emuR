@@ -114,9 +114,11 @@ import_mediaFiles<-function(dbName,dir,targetSessionName='0000',dbUUID=NULL, ver
 ##' Add files to emuDB
 ##' 
 ##' Add files to bundles of specified session of emuDB.
-##' The files that are found in dir that have the extension 
-##' fileExtension will be copied into the the according bundle
-##' folder that have the same basename as the according file. 
+##' The files that are found in \code{dir} that have the extension 
+##' \code{fileExtension} will be copied into the the according bundle
+##' folder that have the same basename as the according file. For 
+##' more information on the structural elements of an emuDB 
+##' see \code{vignette{emuDB}}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param dir directory containing files to be added
@@ -124,12 +126,31 @@ import_mediaFiles<-function(dbName,dir,targetSessionName='0000',dbUUID=NULL, ver
 ##' @param targetSessionName name of sessions containing 
 ##' bundles that the files will be added to
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
 ##' @export
 ##' @keywords emuDB database Emu 
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # specify path to folder containing the following
+##' # files we wish to add to: 
+##' # msajc003.zcr, msajc010.zcr, msajc012.zcr, msajc015.zcr, 
+##' # msajc022.zcr, msajc023.zcr and msajc057.zcr 
+##' path2dir = "/path/to/dir/"
+##' 
+##' # add the files to session "0000" of the "ae" emuDB
+##' add_files(dbName = "ae",
+##'           dir = path2dir,
+##'           fileExtension = "zcr",
+##'           targetSessionName = "0000")
+##' 
+##' }
 add_files <- function(dbName, dir, fileExtension, targetSessionName='0000', dbUUID=NULL){
   
-  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  dbUUID = get_UUID(dbName = dbName, dbUUID = dbUUID)
   dbObj = .load.emuDB.DBI(name = dbName, uuid = dbUUID)
   
   # get all basePath + bundles
@@ -158,18 +179,33 @@ add_files <- function(dbName, dir, fileExtension, targetSessionName='0000', dbUU
 
 ##' List files of emuDB
 ##' 
+##' List files belonging to emuDB. For 
+##' more information on the structural elements of an emuDB 
+##' see \code{vignette{emuDB}}.
 ##' @param dbName name of loaded emuDB
 ##' @param sessionPattern A (glob) pattern matching sessions to be searched from the database
 ##' @param bundlePattern A (glob) pattern matching bundles to be searched from the database
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @return file paths as character vector
 ##' @export
-##' @keywords emuDB database Emu 
+##' @keywords emuDB database schema Emu 
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB
+##' # (see ?load_emuDB for more information)
+##' 
+##' # list all files of "ae" emuDB
+##' list_files(dbName = "ae") 
+##' 
+##' }
+##' 
 list_files <- function(dbName,
                        sessionPattern = "*",
                        bundlePattern = "*",
                        dbUUID = NULL){
-  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  dbUUID = get_UUID(dbName = dbName, dbUUID = dbUUID)
   dbObj = .load.emuDB.DBI(name = dbName, uuid = dbUUID)
   
   # get all basePath + bundles

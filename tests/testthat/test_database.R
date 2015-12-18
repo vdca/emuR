@@ -38,7 +38,7 @@ test_that("Convert example database ae",{
 })
 
 check_properties_of_ae_db=function(){
-  bp=file.path(.test_emu_ae_db_dir, 'ae')
+  bp=file.path(.test_emu_ae_db_dir, 'ae_emuDB')
   nbp=normalizePath(bp)
   db=get.database(uuid=.test_emu_ae_db_uuid)
   expect_that(db[['name']],is_equivalent_to('ae'))
@@ -59,13 +59,13 @@ check_properties_of_ae_db=function(){
 }
 
 test_that("Load example database ae",{
-  bp=file.path(.test_emu_ae_db_dir, 'ae')
+  bp=file.path(.test_emu_ae_db_dir, 'ae_emuDB')
   load_emuDB(bp, inMemoryCache = internalVars$testingVars$inMemoryCache, verbose=FALSE)
   check_properties_of_ae_db()
 })
 
 test_that("Reload example database ae",{
-  bp=file.path(.test_emu_ae_db_dir, 'ae')
+  bp=file.path(.test_emu_ae_db_dir, 'ae_emuDB')
   #reload_emuDB(dbUUID = .test_emu_ae_db_uuid)
   load_emuDB(bp, inMemoryCache = internalVars$testingVars$inMemoryCache, verbose=FALSE)
   check_properties_of_ae_db()
@@ -76,7 +76,7 @@ test_that("Create emuDB from scratch works",{
     purge_emuDB('create_emuDB_test1',interactive = F)
   }
   create_emuDB('create_emuDB_test1',tempdir())
-  t1BasePath=file.path(tempdir(),'create_emuDB_test1')
+  t1BasePath=file.path(tempdir(),'create_emuDB_test1_emuDB')
   t1=load_emuDB(t1BasePath)
   expect_that(t1,is_equivalent_to('create_emuDB_test1'))
  
@@ -92,7 +92,7 @@ test_that("Create emuDB from scratch works",{
   })
 
 test_that("Data types are correct",{
-  #dbUUID = get_emuDB_UUID("ae")
+  #dbUUID = get_UUID("ae")
   items=dbReadTable(get_emuDBcon(.test_emu_ae_db_uuid),'items')
   
   expect_that(class(items[['seqIdx']]),is_equivalent_to('integer'))
@@ -177,7 +177,7 @@ test_that("Test ae samples",{
 })
 
 test_that("Test ae modify",{
-  #dbUUID = get_emuDB_UUID("ae")
+  #dbUUID = get_UUID("ae")
   dbUUID=.test_emu_ae_db_uuid
   orgItems=dbGetQuery(get_emuDBcon(dbUUID),paste0("SELECT * FROM items WHERE db_uuid='",.test_emu_ae_db_uuid,"'"))
   orgLabels=dbGetQuery(get_emuDBcon(dbUUID),paste0("SELECT * FROM labels WHERE db_uuid='",.test_emu_ae_db_uuid,"'"))

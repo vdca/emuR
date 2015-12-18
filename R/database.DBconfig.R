@@ -87,6 +87,11 @@ get_ssffTracks_used_by_DBconfig <- function(DBconfig){
     for(sco in p$signalCanvases$order){
       allTracks = c(allTracks, sco)
     }
+    # tracks in twoDimCanvases$order
+    for(tdco in p$twoDimCanvases$order){
+      allTracks = c(allTracks, tdco)
+    }
+    
     # tracks in signalCanvases$assign
     for(sca in p$signalCanvases$assign){
       allTracks = c(allTracks, sca$ssffTrackName)
@@ -470,17 +475,50 @@ get.levelDefinition <- function(DBconfig, name){
 ###########################################
 # CRUD operation for levelDefinitions
 
-##' Add level definition to emuDB
+##' Add / List / Remove level definition to / of / from emuDB
+##' 
+##' Add / List / Remove database operation functions for level definitions. 
+##' A level is a more general term for what is often referred to as a "tier". 
+##' It is more general in the sense that people usually 
+##' expect tiers to contain time information. Levels 
+##' can either contain time information if they are of the 
+##' type "EVENT" or of the type "SEGMENT" but are timeless 
+##' if they are of the type "ITEM". For more information 
+##' on the structural elements of an emuDB see \code{vignette(emuDB)}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param name name of level definition
 ##' @param type type of level definition
 ##' @param store changes to file system
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Klaus Jaensch
+##' @keywords emuDB database schema Emu
+##' @name AddListRemoveLevelDefinitions
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # add level called "Phonetic2" to the "ae" emuDB
+##' # that could for example contain the transcriptions of a second annotator
+##' add_levelDefinition(dbName = "ae",
+##'                     name = "Phonetic2",
+##'                     type = "SEGMENT")
+##'                     
+##' # list level definition of "ae" emuDB
+##' list_levelDefinitions(dbName = "ae")
+##' 
+##' # remove newly added level definition
+##' remove_levelDefinitions(dbName = "ae",
+##'                         name = "Phonetic2")
+##' }
+##' 
+NULL
+
+##' @rdname AddListRemoveLevelDefinitions
 ##' @export
-##' @keywords emuDB database schema Emu 
-add_levelDefinition<-function(dbName,name,
+add_levelDefinition<-function(dbName, name,
                               type, store = TRUE,
                               dbUUID=NULL){
   
@@ -512,13 +550,9 @@ add_levelDefinition<-function(dbName,name,
   invisible(NULL)
 }
 
-##' List level definitions of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Klaus Jaensch
+
+##' @rdname AddListRemoveLevelDefinitions
 ##' @export
-##' @keywords emuDB database schema Emu 
 list_levelDefinitions <- function(dbName, dbUUID=NULL){
   dbObj = .load.emuDB.DBI(name = dbName, uuid = dbUUID)
   df <- data.frame(name=character(),
@@ -536,22 +570,11 @@ list_levelDefinitions <- function(dbName, dbUUID=NULL){
 }
 
 
-modify_levelDefinition<-function(){
-  stop('currently not implemented')
-}
-
-
-##' Remove level definition to emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param name name of level definition
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Klaus Jaensch
+##' @rdname AddListRemoveLevelDefinitions
 ##' @export
-##' @keywords emuDB database schema Emu 
 remove_levelDefinition<-function(dbName,name,dbUUID=NULL){
   dbObj=.load.emuDB.DBI(uuid = dbUUID,name=dbName)
-  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  dbUUID = get_UUID(dbName = dbName, dbUUID = dbUUID)
   # check if level definition (name)exists 
   if(!any(sapply(dbObj[['DBconfig']][['levelDefinitions']],function(ld) ld[['name']]==name))){
     stop("Level definition:",name," does not exist in database ",dbObj[['name']])
@@ -593,16 +616,54 @@ remove_levelDefinition<-function(dbName,name,dbUUID=NULL){
 ###################################################
 # CRUD operations for attributeDefinitions
 
-##' Add attribute definition to emuDB
+##' Add / List / Remove attribute definition to / of / from emuDB
+##' 
+##' Add / List / Remove database operation functions for attribute definition 
+##' to / of / from an existing level definition
+##' of a emuDB. Attribute
+##' definitions can be viewed as definitions of
+##' parallel labels for the annotational units (ITEMs) of the emuDB. 
+##' Each level definition is required to have at least one 
+##' default attribute definition that has the same name as the level definition
+##' (automatically created by \code{\link{add_levelDefinition}}). For more 
+##' information on the structural elements of an emuDB see \code{vignette(emuDB)}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param levelName name of level
-##' @param name name af new attributeDefinition
-##' @param type type of new attributeDefinition
+##' @param name name of attributeDefinition
+##' @param type type of attributeDefinition (currently only "STRING")
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
-##' @export
 ##' @keywords emuDB database DBconfig Emu 
+##' @name AddListRemoveAttributeDefinitions
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # add additional attribute definition to the "Phonetic" level
+##' # of the "ae" emuDB that will contain the UTF8 IPA
+##' # symbols of the phonetic transcriptions
+##' add_attributeDefinition(dbName = "ae",
+##'                         levelName = "Phonetic",
+##'                         name = "IPA-UTF8")
+##'                         
+##' # list attribute definitions for level "Word"
+##' # of the "ae" emuDB
+##' list_attributeDefinitions(dbName = "ae", 
+##'                           levelName = "Word")
+##' 
+##' # remove newly added attributeDefinition
+##' remove_attributeDefinition(dbName = "ae",
+##'                            levelName = "Phonetic",
+##'                            name = "IPA-UTF8")
+##' }
+##' 
+NULL
+
+##' @rdname AddListRemoveAttributeDefinitions
+##' @export
 add_attributeDefinition <- function(dbName, levelName, 
                                     name, type = "STRING",
                                     dbUUID=NULL){
@@ -633,14 +694,9 @@ add_attributeDefinition <- function(dbName, levelName,
   
 }
 
-##' List attribute definitions of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param levelName name of level
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+
+##' @rdname AddListRemoveAttributeDefinitions
 ##' @export
-##' @keywords emuDB database schema Emu 
 list_attributeDefinitions <- function(dbName, levelName, dbUUID=NULL){
   dbObj=.load.emuDB.DBI(uuid = dbUUID,name=dbName)
   ld = get.levelDefinition(dbObj$DBconfig, levelName)
@@ -669,29 +725,19 @@ list_attributeDefinitions <- function(dbName, levelName, dbUUID=NULL){
   return(df)
 }
 
-modify_attributeDefinition <- function(){
-  stop('Not implemnted yet')
-}
 
-##' Remove attribute definitions from emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param levelName name of level
-##' @param attributeDefinitionName name of attributeDefinition
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname AddListRemoveAttributeDefinitions
 ##' @export
-##' @keywords emuDB database schema Emu
 remove_attributeDefinition <- function(dbName, 
                                        levelName, 
-                                       attributeDefinitionName, 
+                                       name, 
                                        dbUUID = NULL){
   
-  if(levelName == attributeDefinitionName){
+  if(levelName == name){
     stop("Can not remove primary attributeDefinition (attributeDefinition with same name as level)")
   }
   
-  uuid=get_emuDB_UUID(dbName, dbUUID)
+  uuid=get_UUID(dbName, dbUUID)
   dbObj = .load.emuDB.DBI(uuid = uuid)
   
   ld = get.levelDefinition(dbObj$DBconfig, levelName)
@@ -703,7 +749,7 @@ remove_attributeDefinition <- function(dbName,
                                                "it.bundle = lb.bundle AND ",
                                                "it.itemID = lb.itemID AND ",
                                                "it.level = '", levelName, "' AND ",
-                                               "lb.name = '", attributeDefinitionName, "'"))
+                                               "lb.name = '", name, "'"))
   
   if(nrow(qRes) > 0){
     stop("Can not remove attributeDefinition if there are labels present")
@@ -717,7 +763,7 @@ remove_attributeDefinition <- function(dbName,
     }
     
     for(i in 1:length(dbObj$DBconfig$levelDefinitions[[levDefIdx]]$attributeDefinitions)){
-      if(dbObj$DBconfig$levelDefinitions[[levDefIdx]]$attributeDefinitions[[i]]$name == attributeDefinitionName){
+      if(dbObj$DBconfig$levelDefinitions[[levDefIdx]]$attributeDefinitions[[i]]$name == name){
         dbObj$DBconfig$levelDefinitions[[levDefIdx]]$attributeDefinitions[[i]] = NULL
         break
       }
@@ -732,16 +778,63 @@ remove_attributeDefinition <- function(dbName,
 ###################################################
 # CRUD operations for legalLabels
 
-##' Set legal labels of attributeDefinition of emuDB
+##' Set / Get / Remove legal labels of attributeDefinition of emuDB
+##' 
+##' Set / Get / Remove legal labels of a specific attributeDefinition of a emuDB. 
+##' The legal labels are a character vector of strings
+##' that specifies the labels that are legal (i.e. allowed / valid) for the given attribute. 
+##' As the EMU-webApp won't allow the annotator to enter any labels that are not 
+##' specified in this array, this is a simple way of assuring that a level 
+##' has a consistent label set. For more information 
+##' on the structural elements of an emuDB see \code{vignette(emuDB)}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param levelName name of level
 ##' @param attributeDefinitionName name of attributeDefinition
-##' @param legalLabels character array containing legal labels
+##' @param legalLabels character vector of labels
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @keywords emuDB database schema Emu
+##' @name SetGetRemoveLegalLabels
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' legalPhoneticLabels = c("V", "m", "N", "s", "t", "H", "@:", "f", "r", 
+##'                         "E", "n", "z", "S", "i:", "w", "@", "k", "I", "d", 
+##'                         "db", "j", "u:", "dH", "l", "ai", "O", "D", "o:", "v")
+##' 
+##' # set legal labels of the 
+##' # default "Phonetic" attributeDefinition of
+##' # the "Phonetic" level of "ae" emuDB
+##' set_legalLabels(dbName = "ae", 
+##'                 levelName = "Phonetic",
+##'                 attributeDefinitionName = "Phonetic",
+##'                 legalLabels = legalPhoneticLabels)
+##' 
+##' # get legal labels of the 
+##' # default "Phonetic" attributeDefinition of
+##' # the "Phonetic" level of "ae" emuDB
+##' get_legalLabels(dbName = "ae", 
+##'                 levelName = "Phonetic", 
+##'                 attributeDefinitionName = "Phonetic")
+##'                 
+##' 
+##' # remove legal labels of the 
+##' # default "Phonetic" attributeDefinition of
+##' # the "Phonetic" level of "ae" emuDB
+##' remove_legalLabels(dbName = "ae", 
+##'                    levelName = "Phonetic", 
+##'                    attributeDefinitionName = "Phonetic")
+##'                 
+##' }
+##' 
+NULL
+
+##' @rdname SetGetRemoveLegalLabels
 ##' @export
-##' @keywords emuDB database DBconfig Emu 
 set_legalLabels <- function(dbName,
                             levelName,
                             attributeDefinitionName,
@@ -763,15 +856,9 @@ set_legalLabels <- function(dbName,
   
 }
 
-##' Get legal labels of attributeDefinition of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param levelName name of level
-##' @param attributeDefinitionName name of attributeDefinition
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+
+##' @rdname SetGetRemoveLegalLabels
 ##' @export
-##' @keywords emuDB database schema Emu
 get_legalLabels <- function(dbName,
                             levelName,
                             attributeDefinitionName, 
@@ -795,19 +882,8 @@ get_legalLabels <- function(dbName,
 }
 
 
-modify_legalLabels <- function(){
-  stop("not implemented yet")
-}
-
-##' Remove legal labels of attributeDefinition of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param levelName name of level
-##' @param attributeDefinitionName name of attributeDefinition
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname SetGetRemoveLegalLabels
 ##' @export
-##' @keywords emuDB database schema Emu
 remove_legalLabels <- function(dbName,
                                levelName,
                                attributeDefinitionName, 
@@ -822,7 +898,19 @@ remove_legalLabels <- function(dbName,
 ###################################################
 # CRUD operations for attributeDefinition$labelGroups
 
-##' Add labelGroup of attributeDefinition to emuDB
+##' Add / List / Remove labelGroup to / of / from attributeDefinition of emuDB
+##' 
+##' Add / List / Remove label group to / of / from a specific attribute definition. 
+##' This label group can be used as a short hand  
+##' to reference groups of labels specific
+##' to an attribute definition (compared to global label groups that 
+##' are added by \code{\link{add_labelGroup}}) in a 
+##' \code{\link{query}}. A common example would be to
+##' add a label group for something like the phonetic
+##' category of nasals to be able reference them 
+##' as "nasals" in a \code{\link{query}}. For more information 
+##' on the structural elements of an emuDB see \code{vignette(emuDB)}.
+##' 
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param levelName name of level
@@ -830,9 +918,49 @@ remove_legalLabels <- function(dbName,
 ##' @param labelGroupName name of label group
 ##' @param labelGroupValues character vector of labels
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
-##' @export
 ##' @keywords emuDB database schema Emu
+##' @seealso add_labelGroup
+##' @name AddListRemoveAttrDefLabelGroup
+##' @examples
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' sampaNasals = c("m", "F", "n", "J", "N")
+##' 
+##' # add these values to the default Phonetic attribute
+##' # definition of the Phonetic level of the "ae" emuDB
+##' add_attrDefLabelGroup(dbName = "ae",
+##'                       levelName = "Phonetic",
+##'                       attributeDefinitionName = "Phonetic",
+##'                       labelGroupName = "sampaNasals",
+##'                       labelGroupValues = sampaNasals)
+##' 
+##' # query the labelGroup
+##' query("ae", "Phonetic=sampaNasals")
+##' 
+##' 
+##' # list attribute definition label groups
+##' # of attributeDefinition "Phonetic" of the level "Phonetic"
+##' # of the "ae" emuDB
+##' list_attrDefLabelGroups(dbName = "ae", 
+##'                         levelName = "Phonetic" , 
+##'                         attributeDefinitionName = "Phonetic")
+##' 
+##' # remove the newly added attrDefLabelGroup
+##' remove_attrDefLabelGroup(dbName = "ae",
+##'                          levelName = "Phonetic",
+##'                          attributeDefinitionName = "Phonetic",
+##'                          labelGroupName = "sampaNasals")
+##' 
+##' }
+##' 
+NULL
+
+##' @rdname AddListRemoveAttrDefLabelGroup
+##' @export
 add_attrDefLabelGroup <- function(dbName,
                                   levelName,
                                   attributeDefinitionName, 
@@ -862,16 +990,8 @@ add_attrDefLabelGroup <- function(dbName,
   .store.schema(dbObj)
 }
 
-
-##' List labelGroups of attributeDefinition of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param levelName name of level
-##' @param attributeDefinitionName name of attributeDefinition
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname AddListRemoveAttrDefLabelGroup
 ##' @export
-##' @keywords emuDB database schema Emu
 list_attrDefLabelGroups <- function(dbName,
                                     levelName,
                                     attributeDefinitionName, 
@@ -897,20 +1017,9 @@ list_attrDefLabelGroups <- function(dbName,
   return(df)
 }
 
-modify_attrDefLabelGroup <- function(){
-  stop("not implemented yet!")
-}
 
-##' Remove labelGroups of attributeDefinition from emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param levelName name of level
-##' @param attributeDefinitionName name of attributeDefinition
-##' @param labelGroupName name of label group
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname AddListRemoveAttrDefLabelGroup
 ##' @export
-##' @keywords emuDB database schema Emu
 remove_attrDefLabelGroup <- function(dbName,
                                      levelName,
                                      attributeDefinitionName, 
@@ -942,15 +1051,60 @@ remove_attrDefLabelGroup <- function(dbName,
 ###################################################
 # CRUD operations for linkDefinitions
 
-##' Add linkDefinition to emuDB
+##' Add / List / Remove linkDefinition to / of / from emuDB
+##' 
+##' Add / List / Remove new link definition to / of / from emuDB. A link definition
+##' specifies the relationship between two levels, the
+##' super-level and the sub-level. The entirety of all link 
+##' definitions of a emuDB specifies the 
+##' hierarchical structure of the database. For more information
+##' on the structural elements of an emuDB see \code{vignette(emuDB)}.
+##' 
+##' Link type descriptions:
+##' \itemize{
+##' \item{\code{"ONE_TO_MANY"}}{A single ITEM of the super-level can be linked to multiple ITEMs of the sub-level}
+##' \item{\code{"MANY_TO_MANY"}}{Multiple ITEMs of the super-level can be linked to multiple ITEMs of the sub-level}
+##' \item{\code{"ONE_TO_ONE"}}{A single ITEM of the super-level can be linked to a single ITEM of the sub-level}
+##' }
+##' 
+##' For all link types the rule applies that no links are allowed to cross any other links.
 ##' 
 ##' @param dbName name of emuDB
-##' @param type type of linkDefinition
-##' @param superlevelName name of superlevel of linkDefinition
-##' @param sublevelName name of sublevel of linkDefinition
+##' @param type type of linkDefinition (either \code{"ONE_TO_MANY"}, \code{"MANY_TO_MANY"} or \code{"ONE_TO_ONE"})
+##' @param superlevelName name of super-level of linkDefinition
+##' @param sublevelName name of sub-level of linkDefinition
 ##' @param dbUUID optional UUID of emuDB
+##' @name AddListRemoveLinkDefinition
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded emuDB that was converted
+##' # using the TextGridCollection function called "myTGcolDB"
+##' # (see ?load_emuDB for more information)
+##' 
+##' # add link definition from super-level "Phoneme"
+##' # to sub-level "Phonetic" of type "ONE_TO_MANY"
+##' # for "myTGcolDB" emuDB
+##' add_linkDefinition(dbName = "myTGcolDB",
+##'                    type = "ONE_TO_MANY",
+##'                    superlevelName = "Phoneme",
+##'                    sublevelName = "Phonetic")
+##' 
+##' # list link definitions for "myTGcolDB" emuDB
+##' list_linkDefinitions(dbName = "myTGcolDB")
+##' 
+##' # remove newly added link definition
+##' remove_linkDefinition(dbName = "myTGcolDB",
+##'                       superlevelName = "Phoneme",
+##'                       sublevelName = "Phonetic")
+##' 
+##' 
+##' }
+NULL
+
+##' @rdname AddListRemoveLinkDefinition
 ##' @export
-##' @author Raphael Winkelmann
 add_linkDefinition <- function(dbName, 
                                type,
                                superlevelName,
@@ -991,13 +1145,8 @@ add_linkDefinition <- function(dbName,
 }
 
 
-##' List linkDefinitions of emuDB
-##' 
-##' @param dbName name of emuDB
-##' @param dbUUID optional UUID of emuDB
-##' @return data.frame object containing linkDefinitions infos
+##' @rdname AddListRemoveLinkDefinition
 ##' @export
-##' @author Raphael Winkelmann
 list_linkDefinitions <- function(dbName, dbUUID = NULL){
   
   dbObj=.load.emuDB.DBI(uuid = dbUUID,name=dbName)
@@ -1017,25 +1166,16 @@ list_linkDefinitions <- function(dbName, dbUUID = NULL){
   
 }
 
-modify_linkDefinition <- function(){
-  stop("currently not implemented")
-}
 
-##' Remove linkDefinition from emuDB
-##' 
-##' @param dbName name of emuDB
-##' @param superlevelName name of superlevel of linkDefinition
-##' @param sublevelName name of sublevel of linkDefinition
-##' @param dbUUID optional UUID of emuDB
+##' @rdname AddListRemoveLinkDefinition
 ##' @export
-##' @author Raphael Winkelmann
 remove_linkDefinition <- function(dbName, 
                                   superlevelName,
                                   sublevelName,
                                   dbUUID = NULL){
   
   dbObj = .load.emuDB.DBI(uuid = dbUUID,name=dbName)
-  dbUUID = get_emuDB_UUID(dbName = dbName, dbUUID = dbUUID)
+  dbUUID = get_UUID(dbName = dbName, dbUUID = dbUUID)
   
   curLds = list_linkDefinitions(dbName = dbName, dbUUID = dbUUID)
   
@@ -1077,8 +1217,20 @@ remove_linkDefinition <- function(dbName,
 ###################################################
 # CRUD operations for ssffTrackDefinitions
 
-##' Add ssffTrackDefinition to emuDB
-##' @description Add ssffTrackDefinitions to emuDB
+##' Add / List / Remove ssffTrackDefinition to / from / of emuDB
+##' 
+##' Add / List / Remove ssffTrackDefinitions to / from / of emuDB. 
+##' An ssffTrack (often simply referred to as a track) references 
+##' data that is stored in the Simple Signal File Format (SSFF) 
+##' in the according bundle folders. The two most common types of data are:
+##' \itemize{
+##' \item{complementary data that was acquired during the recording 
+##' such as data acquired during electromagnetic 
+##' articulographic (EMA) or electropalatography (EPG) recordings;}
+##' \item{derived data, i.e. data that was calculated from the original audio signal 
+##' such as formant values and their bandwidths or the short-term Root Mean Square amplitude of the signal.}
+##' }
+##' For more information on the structural elements of an emuDB see \code{vignette(emuDB)}.
 ##' @param dbName name of emuDB
 ##' @param name name of ssffTrackDefinitions
 ##' @param columnName columnName of ssffTrackDefinitions.
@@ -1087,25 +1239,65 @@ remove_linkDefinition <- function(dbName,
 ##' @param fileExtension fileExtension of ssffTrackDefinitions.
 ##' If the \code{onTheFlyFunctionName} parameter is set and this one isn't the
 ##' \code{fileExtension} will default to the first entry in \code{wrasspOutputInfos[[onTheFlyFunctionName]]$ext}.
-##' @param onTheFlyFunctionName name of wrassp function to do on-the-fly calculation 
-##' @param onTheFlyParams a list parameters that will be given to the function 
+##' @param onTheFlyFunctionName name of wrassp function to do on-the-fly calculation. See \code{names(wrasspOutputInfos)}
+##' for a list of all the signal processing functions provided by the wrassp package.
+##' @param onTheFlyParams a list of parameters that will be given to the function 
 ##' passed in by the onTheFlyFunctionName parameter. This list can easily be 
-##' generated using the \code{formals} function and then setting the according 
+##' generated using the \code{formals} function on the according signal processing function 
+##' provided by the wrassp package and then setting the
 ##' parameter one wishes to change.     
 ##' @param onTheFlyOptLogFilePath path to optional log file for on-the-fly function
-##' @param showProgress show progress bar
+##' @param deleteFiles delete files that belong to ssffTrackDefinition on removal
+##' @param verbose Show progress bars and further information
 ##' @param interactive ask user for confirmation
 ##' @param dbUUID optional UUID of emuDB
 ##' @seealso wrasspOutputInfos
+##' @name AddListRemoveSsffTrackDefinition
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # add ssff track definition to "ae" emuDB
+##' # calculating the according SSFF files on-the-fly
+##' # using the wrassp function "zcrana" (zero-crossing-rate analysis)
+##' add_ssffTrackDefinition(dbName = "ae",
+##'                         name = "ZCRtrack",
+##'                         onTheFlyFunctionName = "zcrana")
+##'                         
+##' # add ssff track definition to "ae" emuDB
+##' # for SSFF files that will be added later (either
+##' # by adding files to the emuDB using 
+##' # the add_files() function or by calculating
+##' # them using the according function provided 
+##' # by the wrassp package)
+##' add_ssffTrackDefinition(dbName = "ae",
+##'                         name = "formants",
+##'                         columnName = "fm",
+##'                         fileExtension = "fms")
+##' 
+##' # list ssff track definitions for "ae" emuDB
+##' list_ssffTrackDefinitions(dbName = "ae")
+##' 
+##' # remove newly added ssff track definition
+##' remove_ssffTrackDefinition <- function(dbName = "ae", 
+##'                                        name = "ZCRtrack")
+##' 
+##' }
+##' 
+NULL
+
+##' @rdname AddListRemoveSsffTrackDefinition
 ##' @export
-##' @author Raphael Winkelmann
-add_ssffTrackDefinition <- function(dbName = NULL, name =  NULL, 
+add_ssffTrackDefinition <- function(dbName, name, 
                                     columnName = NULL, fileExtension = NULL, 
                                     onTheFlyFunctionName = NULL, onTheFlyParams = NULL, 
                                     onTheFlyOptLogFilePath = NULL, dbUUID = NULL,
-                                    showProgress = TRUE, interactive = TRUE){
+                                    verbose = TRUE, interactive = TRUE){
   # .initialize.DBI.database()
-  uuid=get_emuDB_UUID(dbName,dbUUID)
+  uuid=get_UUID(dbName,dbUUID)
   dbObj = .load.emuDB.DBI(uuid = uuid)
   
   #########################
@@ -1185,16 +1377,11 @@ add_ssffTrackDefinition <- function(dbName = NULL, name =  NULL,
   .store.schema(dbObj)
 }
 
-##' List ssffTrackDefinitions of emuDB
-##' @description List ssffTrackDefinitions of emuDB
-##' @param dbName name of emuDB
-##' @param dbUUID optional UUID of emuDB
-##' @return data.frame object containing ssffTrackDefinitions infos
+##' @rdname AddListRemoveSsffTrackDefinition
 ##' @export
-##' @author Raphael Winkelmann
-list_ssffTrackDefinitions <- function(dbName = NULL, dbUUID = NULL){
+list_ssffTrackDefinitions <- function(dbName, dbUUID = NULL){
   # .initialize.DBI.database()
-  uuid=get_emuDB_UUID(dbName,dbUUID)
+  uuid=get_UUID(dbName,dbUUID)
   dbObj = .load.emuDB.DBI(uuid = uuid)
   
   df <- do.call(rbind, lapply(dbObj$DBconfig$ssffTrackDefinitions, data.frame, stringsAsFactors=FALSE))
@@ -1202,22 +1389,12 @@ list_ssffTrackDefinitions <- function(dbName = NULL, dbUUID = NULL){
 }
 
 
-modify_ssffTrackDefinition <- function(){
-  stop("Currently not implementd")
-}
-
-
-##' Remove ssffTrackDefinition of emuDB
-##' @description Remove ssffTrackDefinitions of emuDB
-##' @param dbName name of emuDB
-##' @param name name of ssffTrackDefinitions to be deleted
-##' @param deleteFiles deletes all files with the fileExtension of the ssffTrackDefinition
-##' @param dbUUID optional UUID of emuDB
+##' @rdname AddListRemoveSsffTrackDefinition
 ##' @export
-remove_ssffTrackDefinition <- function(dbName = NULL, name = NULL, 
+remove_ssffTrackDefinition <- function(dbName, name, 
                                        deleteFiles = FALSE, dbUUID = NULL){
   # .initialize.DBI.database()
-  uuid=get_emuDB_UUID(dbName,dbUUID)
+  uuid=get_UUID(dbName,dbUUID)
   dbObj = .load.emuDB.DBI(uuid = uuid)
   
   # precheck if exists
@@ -1246,24 +1423,71 @@ remove_ssffTrackDefinition <- function(dbName = NULL, name = NULL,
 }
 
 ###################################################
-# CRUD operations for (global) labelGroups
+# CRUD operations for global labelGroups
 
-##' Add (global) labelGroup to emuDB
+##' Add / List / Remove global labelGroup to / of / from emuDB
+##' 
+##' Add / List / Remove label group that can be used as a short hand  
+##' to reference groups of labels that are globally defined
+##' for the entire database (compared to attribute definition
+##' specific label groups that 
+##' are added by \code{\link{add_attrDefLabelGroup}}) in a 
+##' \code{\link{query}}. A common example would be to
+##' add a label group for something like the phonetic
+##' category of nasals to be able to reference them 
+##' as "nasals" in a \code{\link{query}}. For 
+##' more information on the structural elements of an emuDB 
+##' see \code{vignette{emuDB}}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param name name of label group
 ##' @param values character vector of labels
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
-##' @export
 ##' @keywords emuDB database schema Emu
+##' @seealso add_attrDefLabelGroup
+##' @name AddListRemoveLabelGroup
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' sampaNasals = c("m", "F", "n", "J", "N")
+##' 
+##' # add these values to the "ae" emuDB
+##' # as a globally available labelGroup
+##' add_labelGroup(dbName = "ae",
+##'                name = "sampaNasals",
+##'                values = sampaNasals)
+##' 
+##' # query the labelGroup in the "Phonetic" level
+##' query(dbName = "ae", 
+##'       query = "Phonetic == sampaNasals")
+##' 
+##' # query the labelGroup in the "Phoneme" level
+##' query(dbName = "ae", 
+##'       query = "Phoneme == sampaNasals")
+##' 
+##' # list global label groups of "ae" emuDB
+##' list_labelGroups(dbName = "ae")
+##' 
+##' # remove the newly added labelGroup
+##' remove_labelGroup(dbName = "ae",
+##'                   name = "sampaNasals")
+##' }
+##' 
+NULL
+
+##' @rdname AddListRemoveLabelGroup
+##' @export
 add_labelGroup <- function(dbName,
                            name,
                            values,
                            dbUUID = NULL){
   
   dbObj=.load.emuDB.DBI(uuid = dbUUID,name=dbName)
-  curLgs = list_labelGroups(dbName)
+  curLgs = list_labelGroups(dbName,dbUUID)
   
   if(name %in% curLgs$name){
     stop("labelGroup with name '", name ,"' already exists!")
@@ -1278,17 +1502,12 @@ add_labelGroup <- function(dbName,
 }
 
 
-
-##' List (global) labelGroups of emuDB
-##' @param dbName name of emuDB
-##' @param dbUUID optional UUID of emuDB
-##' @return data.frame object containing labelGroup infos
+##' @rdname AddListRemoveLabelGroup
 ##' @export
-##' @author Raphael Winkelmann
 list_labelGroups <- function(dbName,
                              dbUUID = NULL){
   
-  uuid=get_emuDB_UUID(dbName,dbUUID)
+  uuid=get_UUID(dbName,dbUUID)
   dbObj = .load.emuDB.DBI(uuid = uuid)
   df = data.frame(name = character(),
                   values = character(),
@@ -1304,14 +1523,8 @@ list_labelGroups <- function(dbName,
 }
 
 
-##' Remove (global) labelGroup from emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param name name of label group
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname AddListRemoveLabelGroup
 ##' @export
-##' @keywords emuDB database schema Emu
 remove_labelGroup <- function(dbName,
                               name,
                               dbUUID = NULL){

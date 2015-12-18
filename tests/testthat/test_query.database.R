@@ -16,7 +16,7 @@ path2testhatFolder = file.path(tempdir(),"emuR_testthat")
 
 # purge ae if loaded to make tests work
 if(is.emuDB.loaded(dbUUID=.test_emu_ae_db_uuid)){
-  #UUID = get_emuDB_UUID(dbName = "ae")
+  #UUID = get_UUID(dbName = "ae")
   purge_emuDB(dbUUID = .test_emu_ae_db_uuid,interactive = F)
 }
 
@@ -37,7 +37,7 @@ test_that("Convert example database ae",{
 })
 
 test_that("Load example database ae",{  
-  load_emuDB(file.path(.test_emu_ae_db_dir,'ae'), inMemoryCache = internalVars$testingVars$inMemoryCache, verbose=FALSE)
+  load_emuDB(file.path(.test_emu_ae_db_dir,'ae_emuDB'), inMemoryCache = internalVars$testingVars$inMemoryCache, verbose=FALSE)
   #load_emuDB("/scratch/klausj/WORK/EmuDbs/ae")
   
   db=get.database(uuid=.test_emu_ae_db_uuid)

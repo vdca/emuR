@@ -35,15 +35,48 @@ create.EMUwebAppConfig <- function(perspectives){
 ###########################################
 # CRUD operation for perspectives
 
-##' Add perspective to emuDB
+##' Add / List / Remove perspective to / of / from emuDB
 ##' 
-##' Add EMUwebAppConfig$perspective to emuDB
+##' Add / List / Remove perspective to / of / from emuDB. The EMU-webApp subdivides different ways 
+##' to look at an emuDB into so called perspectives. These perspectives, 
+##' between which you can switch in the web application, contain 
+##' information on what levels are displayed, which ssffTracks are drawn, 
+##' and so on. For more information on the structural elements of an emuDB 
+##' see \code{vignette{emuDB}}.
 ##' @param dbName name of loaded emuDB
 ##' @param name name of perspective
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
-##' @export
+##' @name AddListRemovePerspective
 ##' @keywords emuDB database DBconfig Emu 
+##' @examples
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # add perspective called "justTones" to the "ae" emuDB
+##' add_perspective(dbName ="ae",
+##'                 name = "justTones") 
+##'                 
+##' # add levelCanvasOrder so only the "Tone" level is displayed
+##' set_levelCanvasesOrder(dbName = "ae", 
+##'                        perspectiveName = "justTones", 
+##'                        order = c("Tone"))
+##' 
+##' # list perspectives of "ae" emuDB
+##' list_perspectives("ae")
+##' 
+##' # remove newly added perspective
+##' remove_perspective(dbName = "ae",
+##'                    name = "justTones")
+##'                    
+##' }
+##' 
+NULL
+
+##' @rdname AddListRemovePerspective
+##' @export
 add_perspective <- function(dbName, 
                             name,
                             dbUUID = NULL){
@@ -72,14 +105,8 @@ add_perspective <- function(dbName,
 }
 
 
-##' List perspectives of emuDB
-##' 
-##' List EMUwebAppConfig$perspectives of emuDB
-##' @param dbName name of loaded emuDB
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname AddListRemovePerspective
 ##' @export
-##' @keywords emuDB database DBconfig Emu 
 list_perspectives <- function(dbName, dbUUID = NULL){
   
   dbObj=.load.emuDB.DBI(name=dbName, uuid = dbUUID)
@@ -99,19 +126,9 @@ list_perspectives <- function(dbName, dbUUID = NULL){
   return(df)
 }
 
-modify_perspective <- function(){
-  stop("currently not implemented")
-}
 
-##' Remove perspective from emuDB
-##' 
-##' List EMUwebAppConfig$perspective from emuDB
-##' @param dbName name of loaded emuDB
-##' @param name name of perspective
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname AddListRemovePerspective
 ##' @export
-##' @keywords emuDB database DBconfig Emu 
 remove_perspective <- function(dbName, 
                                name,
                                dbUUID = NULL){
@@ -139,15 +156,39 @@ remove_perspective <- function(dbName,
 # CRUD operation for signalCanvasesOrder
 
 
-##' Set signalCanvasesOrder of emuDB
+##' Set / Get signalCanvasesOrder of / to / from emuDB
+##' 
+##' Set / Get signalCanvasesOrder array that specifies which signals are 
+##' displayed in the according perspective by the EMU-webApp. A entry in this character vector 
+##' refers to either the name of a ssffTrackDefinition or a predefined string: \code{"OSCI"} which 
+##' represents the oscillogram or \code{"SPEC"} which represents the 
+##' spectrogram. For more information on the structural elements of an emuDB 
+##' see \code{vignette{emuDB}}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param perspectiveName name of perspective
+##' @param order character vector containig names of ssffTrackDefinitions or "OSCI" / "SPEC"
 ##' @param dbUUID optional UUID of loaded emuDB
-##' @param order character vector containig names of ssffTrackDefinitions
-##' @author Raphael Winkelmann
+##' @name SetGetSignalCanvasesOrder
+##' @keywords emuDB database DBconfig Emu
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # get signal canvas order of the "default"
+##' # perspective of the "ae" emuDB
+##' get_signalCanvasesOrder(dbName = "ae", 
+##'                         perspectiveName = "default")
+##'                         
+##' }
+##' 
+NULL
+
+##' @rdname SetGetSignalCanvasesOrder
 ##' @export
-##' @keywords emuDB database DBconfig Emu 
 set_signalCanvasesOrder <- function(dbName,
                                     perspectiveName,
                                     order,
@@ -176,14 +217,8 @@ set_signalCanvasesOrder <- function(dbName,
 }
 
 
-##' Get signalCanvasesOrder of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param perspectiveName name of perspective
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname SetGetSignalCanvasesOrder
 ##' @export
-##' @keywords emuDB database DBconfig Emu 
 get_signalCanvasesOrder <- function(dbName,
                                     perspectiveName,
                                     dbUUID = NULL){
@@ -203,19 +238,50 @@ get_signalCanvasesOrder <- function(dbName,
 # CRUD operation for levelCanvasesOrder
 
 
-##' Set levelCanvasesOrder of emuDB
+##' Set / Get level canvases order of emuDB
+##' 
+##' Set / Get level canvases order of emuDB. Level canvases refer to levels of 
+##' the type "SEGMENT" or "EVENT" that are displayed by the EMU-webApp. Levels 
+##' of type "ITEM" can always be displayed using the show hierarchy modal of the
+##' web application but may not be displayed as level canvases. 
+##' For more information on the structural elements of an emuDB 
+##' see \code{vignette{emuDB}}.
 ##' 
 ##' @param dbName name of loaded emuDB
 ##' @param perspectiveName name of perspective
 ##' @param dbUUID optional UUID of loaded emuDB
 ##' @param order character vector containig names of levelDefinitions
-##' @author Raphael Winkelmann
-##' @export
+##' @name SetGetlevelCanvasesOrder
 ##' @keywords emuDB database DBconfig Emu 
+##' @examples 
+##' \dontrun{
+##' 
+##' ##################################
+##' # prerequisite: loaded "ae" emuDB 
+##' # (see ?load_emuDB for more information)
+##' 
+##' # get level canvases order of "ae" emuDB
+##' order = get_levelCanvasesOrder(dbName = "ae",
+##'                                perspectiveName = "default")
+##' 
+##' # reverse the level canvases order of "ae" emuDB
+##' set_levelCanvasesOrder(dbName = "ae"
+##'                        perspectiveName = "default",
+##'                        order = rev(order))
+##'                        
+##' # get level canvases order of "ae" emuDB                       
+##' get_levelCanvasesOrder(dbName = "ae",
+##'                        perspectiveName = "default")
+##' }
+##' 
+NULL
+
+##' @rdname SetGetlevelCanvasesOrder
+##' @export
 set_levelCanvasesOrder <- function(dbName,
-                                    perspectiveName,
-                                    order,
-                                    dbUUID = NULL){
+                                   perspectiveName,
+                                   order,
+                                   dbUUID = NULL){
   
   dbObj=.load.emuDB.DBI(name = dbName, uuid = dbUUID)
   
@@ -244,14 +310,8 @@ set_levelCanvasesOrder <- function(dbName,
 }
 
 
-##' Get levelCanvasesOrder of emuDB
-##' 
-##' @param dbName name of loaded emuDB
-##' @param perspectiveName name of perspective
-##' @param dbUUID optional UUID of loaded emuDB
-##' @author Raphael Winkelmann
+##' @rdname SetGetlevelCanvasesOrder
 ##' @export
-##' @keywords emuDB database DBconfig Emu 
 get_levelCanvasesOrder <- function(dbName,
                                    perspectiveName,
                                    dbUUID = NULL){
