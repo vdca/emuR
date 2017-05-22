@@ -2,17 +2,18 @@
 import_speechRecorderPrompts = function (emuDBhandle,
                                          speechRecorderScript,
                                          attributeDefinition,
-                                         sequenceIndex = 1,
                                          sessionPattern = ".*",
                                          bundlePattern = ".*",
-                                         correspondenceFunction = NULL,
+                                         matchItemcodeAndBundleName = NULL,
+                                         matchPromptAndRecording = NULL,
+                                         sequenceIndex = 1,
                                          verbose = T) {
   ##
   ## Restrict operations to bundles specified by sessionPattern/bundlePattern
   ##
-  bundleList = list_bundles(emuDBhandle)
-  bundleList = bundleList %>% dplyr::filter(grepl(sessionPattern, session))
-  bundleList = bundleList %>% dplyr::filter(grepl(bundlePattern, name))
+  bundles = list_bundles(emuDBhandle)
+  bundles = bundles %>% dplyr::filter(grepl(sessionPattern, session))
+  bundles = bundles %>% dplyr::filter(grepl(bundlePattern, name))
   
   
   ##
@@ -26,60 +27,50 @@ import_speechRecorderPrompts = function (emuDBhandle,
   nodes = xml2::xml_find_all(script, "//recording")
   
   ##
-  ## Generate a data frame for each recording node and concatentate the data frames
+  ## Loop over <recording> nodes and map them to bundles.
+  ## This will generate a data frame containing all bundles that will be
+  ## modified along with their future labels.
   ##
-  labels = plyr::rbind.fill(
-    lapply(
-      X = nodes,
-      FUN = generateLabelList,
-      bundleList = bundleList,
-      correspondenceFunction = correspondenceFunction,
-      attributeDefinition = attributeDefinition,
-      sequenceIndex = sequenceIndex
+  modifications.list = lapply(nodes, function(currentNode) {
+    itemcode = xml2::xml_attr(currentNode, "itemcode")
+    
+    # If the user does not specify a custom matching function,
+    # we match each <recording> to each bundle whose name ends in the recording's
+    # item code (because the file names that SpeechRecorder outputs are SpeakerCode_ItemCode).
+    if (is.null(matchItemcodeAndBundleName)) {
+      pattern = paste0(".*", itemcode)
+      subset = bundles %>% dplyr::filter(grepl(pattern, name))
+    } else {
+      subset = matchItemcodeAndBundleName(itemcode, bundles)
+    }
+    
+    # If the user does not specify a custom matching function,
+    # we use the children of each <recording> to determine the label.
+    if (is.null(matchPromptAndRecording)) {
+      labelNode = xml2::xml_find_first(currentNode, './/recprompt/mediaitem')
+      label = xml2::xml_text(labelNode)
+    } else {
+      label = matchPromptAndRecording(emuDBhandle, currentNode)
+    }
+    
+    # Generate the data frame that specifies the new labels for those bundles
+    # that have been matched to the currently inspected <recording> node.
+    df = data.frame (
+      session = subset$session,
+      bundle = subset$name,
+      attributeDefinition = rep(attributeDefinition, nrow(subset)),
+      sequenceIndex = rep(sequenceIndex, nrow(subset)),
+      label = rep(label, nrow(subset))
     )
-  )
+    
+    return(df)
+  })
+  
+  ## Combine the individual data frames into a single one
+  modifications = plyr::rbind.fill(modifications.list)
   
   ##
   ## Run the actual function
   ##
-  change_labels(emuDBhandle, labels, verbose)
-}
-
-##
-## Given a <recording> node and a list of bundles, see if any of the bundles are affected by the recording
-## and return a data frame
-##
-## @ todo do not use the term "bundle list" here - it is slightly misleading - maybe "search space" instead?
-##
-generateLabelList = function (currentNode,
-                              bundleList,
-                              correspondenceFunction,
-                              attributeDefinition,
-                              sequenceIndex) {
-  itemcode = xml2::xml_attr(currentNode, "itemcode")
-  
-  ## @TODO speechrecorder concatenates itemcode and speaker - is there a better approach than mine to accomodating this?
-  pattern = paste0(".*", itemcode)
-  subset = bundleList %>% dplyr::filter(grepl(pattern, name))
-  
-  
-  if (nrow(subset) > 0) {
-    if (is.null(correspondenceFunction)) {
-      label = xml2::xml_text(xml2::xml_find_first(currentNode, './/recprompt/mediaitem'))
-    } else {
-      label = correspondenceFunction(emuDBhandle, currentNode)
-    }
-  } else {
-    label = ""
-  }
-  
-  df = data.frame (
-    session = subset$session,
-    bundle = subset$name,
-    attributeDefinition = rep(attributeDefinition, nrow(subset)),
-    sequenceIndex = rep(sequenceIndex, nrow(subset)),
-    label = rep(label, nrow(subset))
-  )
-  
-  return(df)
+  change_labels(emuDBhandle, modifications, verbose)
 }
