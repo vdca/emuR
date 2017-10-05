@@ -1,3 +1,19 @@
+# emuR 0.2.3.9005
+
+## new features / performance tweaks / improvements
+
+* implemented new `persistentOutputType` parameter for `get_trackdata()` to always return a `trackdata` or `emuRtrackdata` object independent of what the `cut` and `npoints` arguments are set to
+* now removing `levelCanvasOrder` entry in `remove_levelDefinition()` (fixes \#156)
+* `serve()` method now uses GET to deliver media files to the EMU-webApp. This avoids the base64 conversion overhead and is a quite significant load time improvement
+* explicit error message in `convert_legacyEmuDB()` when invalid redundant links are found
+* better error message in BPF parser
+* `convert_legacyEmuDB()` automatically converts of `.ssd` media files to `.wav` and normalizes the annotations to start at 0 (only if attr(ssd,'startTime') is not 0).
+
+## bug fixes
+
+* fixed problem of updating cache. Didn't handle data.frame object that was thought to be a vector correctly!
+* fixed a bug in the BPF export function, which meant that WAVE files were only copied into one session
+
 # emuR 0.2.3
 
 ## new features / performance tweaks / improvements
