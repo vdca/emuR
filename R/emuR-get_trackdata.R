@@ -235,9 +235,21 @@
   prevUtt = ""
   bndls = list_bundles(emuDBhandle)
   
-  # loop through bundle names
+  # loop through seglist
   curIndexStart = 1
-  for (i in 1:nrow(seglist)){
+  
+  
+  # init  lists
+  # data_list = list()
+  # timeStampRowNames_list = list()
+  
+  # make cluster
+  cl <- parallel::makeCluster(2)
+  # export variables
+  # parallel::clusterExport(cl, pb)
+  
+  data_list = parallel::parLapply(cl, 1:nrow(seglist), function(i){
+  # for (i in 1:nrow(seglist)){
     if(!("emuRsegs" %in% class(seglist)) & !("tbl_df" %in% class(seglist))){
       curUtt = seglist$utts[i]
       splUtt = stringr::str_split(curUtt, ':')[[1]]
@@ -248,7 +260,7 @@
     
     # check if utts entry exists
     if(!any(bndls$session == splUtt[1] & bndls$name == splUtt[2])){
-      stop("Following utts entry not found: ", seglist$utts[i])
+      stop("Following bundle/utts entry not found: ", seglist$utts[i])
     }
     
     fpath <- file.path(emuDBhandle$basePath, paste0(splUtt[1], session.suffix), paste0(splUtt[2], bundle.dir.suffix), paste0(splUtt[2], ".", trackDef[[1]]$fileExtension))
@@ -260,6 +272,13 @@
       qr = DBI::dbGetQuery(emuDBhandle$connection, paste0("SELECT * FROM bundle WHERE db_uuid='", emuDBhandle$UUID, "' AND session='",
                                                           splUtt[1], "' AND name='", splUtt[2], "'"))
       funcFormals$listOfFiles = file.path(emuDBhandle$basePath, paste0(qr$session, session.suffix), paste0(qr$name, bundle.dir.suffix), qr$annotates)
+      
+      # calculate_segments_only = FALSE
+      
+      # if(calculate_segments_only){
+      #   funcFormals$beginTime = seglist$start[i]/1000
+      #   funcFormals$endTime = seglist$end[i]/1000
+      # }
       # only perform calculation if curUtt is not equal to preUtt
       if(curUtt != prevUtt){
         curDObj = do.call(onTheFlyFunctionName, funcFormals)
@@ -325,7 +344,7 @@
     
     ################
     # extract data
-    tmpData <- eval(parse(text = paste("curDObj$", trackDef[[1]]$columnName, sep = "")))
+    tmpData <- curDObj[[trackDef[[1]]$columnName]]
     
     #############################################################
     # set curIndexEnd dependant on if event/segment/cut/npoints
@@ -378,22 +397,27 @@
     
     curIndexStart <- curIndexEnd + 1
     
-    if(!exists("data_list")){
-      # init lists
-      data_list = list()
-      timeStampRowNames_list = list()
-    }
+    # if(!exists("data_list")){
+    #   # init lists
+    #   data_list = list()
+    #   timeStampRowNames_list = list()
+    # }
     
-    data_list[[i]] = curData
-    timeStampRowNames_list[[i]] = rowSeq
+    # data_list[[i]] <- curData
+    # timeStampRowNames_list[[i]] <- rowSeq
     
     prevUtt = curUtt
-    
-  }
+
+    # first column is times stamp row names
+    return(cbind(rowSeq, curData))
+  })
+  
+  parallel::stopCluster(cl)
   
   # combind lists to form result
   data = do.call(rbind, data_list)
-  timeStampRowNames = unlist(timeStampRowNames_list)
+  timeStampRowNames = data[,1]
+  data = data[,-1]
   
   if(!consistentOutputType && ((!is.null(cut) && (npoints == 1 || is.null(npoints))) || (sum(seglist$end) == 0 && (npoints == 1 || is.null(npoints))))){
     resObj = as.data.frame(data)
