@@ -42,7 +42,7 @@ test_that("correct classes are returned", {
     td = get_trackdata(ae, hStar, 'fm', npoints=3, consistentOutputType = F, verbose=F)
     expect_that(class(td), equals('trackdata'))
     
-    sl = query(ae, "Phonetic=@|i:")
+    sl = query(ae, "Phonetic = @ | i:")
     td = get_trackdata(ae, sl, "fm", resultType = "emuRtrackdata", consistentOutputType = F, verbose=F)
     expect_true(inherits(td, 'emuRtrackdata'))
   })
