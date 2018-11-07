@@ -225,6 +225,7 @@
       cat('\n  INFO: applying', onTheFlyFunctionName, 'to', nrow(seglist), 'segments/events\n')
     }
   }else{
+    funcFormals = list()
     if(verbose){
       cat('\n  INFO: parsing', nrow(seglist), trackDef[[1]]$fileExtension, 'segments/events\n')
     }
@@ -233,15 +234,22 @@
   prevUtt = ""
   bndls = list_bundles(emuDBhandle)
   
-  
-  # init  lists
-  # data_list = list()
-  # timeStampRowNames_list = list()
-  
   # make cluster
   cl <- parallel::makeCluster(2)
+  
   # export variables
-  # parallel::clusterExport(cl, seglist)
+  parallel::clusterExport(cl, 
+                          list("emuDBhandle",
+                               "DBconfig",
+                               "seglist", 
+                               "onTheFlyFunctionName", 
+                               "funcFormals",
+                               "session.suffix",
+                               "bundle.dir.suffix",
+                               "trackDef"), 
+                          envir=environment())
+  # export wrassp package
+  # parallel::clusterEvalQ(cl, library(wrassp))  
   
   if (verbose == T && requireNamespace("pbapply", quietly = TRUE)) {
     get_td_lapply = pbapply::pblapply
@@ -267,16 +275,15 @@
                                 stop("Following bundle/utts entry not found: ", seglist$utts[i])
                               }
                               
-                              fpath <- file.path(emuDBhandle$basePath, paste0(splUtt[1], session.suffix), paste0(splUtt[2], bundle.dir.suffix), paste0(splUtt[2], ".", trackDef[[1]]$fileExtension))
-                              
                               ################
                               #get data object
                               
                               if(!is.null(onTheFlyFunctionName)){
-                                qr = DBI::dbGetQuery(emuDBhandle$connection, paste0("SELECT * FROM bundle WHERE db_uuid='", emuDBhandle$UUID, "' AND session='",
-                                                                                    splUtt[1], "' AND name='", splUtt[2], "'"))
                                 
-                                funcFormals$listOfFiles = file.path(emuDBhandle$basePath, paste0(qr$session, session.suffix), paste0(qr$name, bundle.dir.suffix), qr$annotates)
+                                funcFormals$listOfFiles = file.path(emuDBhandle$basePath, 
+                                                                    paste0(splUtt[1], session.suffix), 
+                                                                    paste0(splUtt[2], bundle.dir.suffix), 
+                                                                    paste0(splUtt[2], ".", DBconfig$mediafileExtension))
                                 
                                 # calculate_segments_only = FALSE
                                 
@@ -285,14 +292,19 @@
                                 #   funcFormals$endTime = seglist$end[i]/1000
                                 # }
                                 # only perform calculation if curUtt is not equal to preUtt
-                                if(curUtt != prevUtt){
+                                # if(curUtt != prevUtt){
                                   curDObj = do.call(onTheFlyFunctionName, funcFormals)
-                                }
+                                # }
                               }else{
+                                fpath <- file.path(emuDBhandle$basePath, 
+                                                   paste0(splUtt[1], session.suffix), 
+                                                   paste0(splUtt[2], bundle.dir.suffix), 
+                                                   paste0(splUtt[2], ".", trackDef[[1]]$fileExtension))
+                                
                                 # only perform calculation if curUtt is not equal to preUtt
-                                if(curUtt != prevUtt){
+                                # if(curUtt != prevUtt){
                                   curDObj <- wrassp::read.AsspDataObj(fpath)
-                                }
+                                # }
                               }
                               
                               # set origFreq 
@@ -422,11 +434,11 @@
   
   # combind lists to form result
   data = do.call(rbind, data_list)
-  browser()
+  
   # extract the according columns
   timeStampRowNames = data[,2]
   
-  # index & ftime (TODO)
+  # index & ftime
   index_ftime_uniq = as.data.frame(data) %>% 
     dplyr::group_by(i) %>% 
     dplyr::summarise(curIndexStart = unique(curIndexStart), 
@@ -440,12 +452,12 @@
   origFreq = unique(data[,7])
   
   # this leaves only data columns
-  data = data[,-7:-1]
+  data = as.matrix(data[,-7:-1])
   
   # fix index matrix (always starts at 1 in parallel mode)
   for(row_idx in 2:nrow(index)){
     index[row_idx, 1] = index[row_idx - 1, 2] + 1
-    index[row_idx, 2] = index[row_idx, 1] + index[row_idx, 2]
+    index[row_idx, 2] = index[row_idx, 1] + index[row_idx, 2] - 1
   }
   
   if(!consistentOutputType && ((!is.null(cut) && (npoints == 1 || is.null(npoints))) || (sum(seglist$end) == 0 && (npoints == 1 || is.null(npoints))))){

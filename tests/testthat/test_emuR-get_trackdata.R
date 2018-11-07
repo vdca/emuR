@@ -82,7 +82,7 @@ test_that("correct classes are returned", {
   ###############################
   test_that("n points greater than boundaries word", {
     
-    td = get_trackdata(ae, n, 'fm', cut=0.5, npoints = 20, verbose=F)
+    td = get_trackdata(ae, n, 'fm', cut = 0.5, npoints = 20, verbose = F)
     expect_that(class(td), equals('trackdata'))
   })
   
