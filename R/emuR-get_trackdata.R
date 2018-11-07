@@ -50,6 +50,7 @@
 ##' to \code{FALSE} if the following legacy \code{emu.track} output conversion behaviour is desired: If the \code{cut} parameter is not set (the default) an object of type \code{\link{trackdata}} 
 ##' is returned. If \code{cut} is set and \code{npoints} is not, or the seglist 
 ##' is of type event and npoints is not set, a \code{\link{data.frame}} is returned (see the \code{consistentOutputType} to change this behaviour).
+##' @param nrOfClusters nr of clusters created (see \code{parallel::makeCluster}) when processing the \code{seglist} entries.
 ##' @param verbose Show progress bars and further information
 ##' @return object of type that is specified with \code{resultType}
 ##' @seealso \code{\link{formals}}, \code{\link[wrassp]{wrasspOutputInfos}}, \code{\link{trackdata}}, \code{\link{emuRtrackdata}}
@@ -85,7 +86,7 @@
 "get_trackdata" <- function(emuDBhandle, seglist = NULL, ssffTrackName = NULL, cut = NULL, 
                             npoints = NULL, onTheFlyFunctionName = NULL, onTheFlyParams = NULL, 
                             onTheFlyOptLogFilePath = NULL, resultType = "trackdata",
-                            consistentOutputType = TRUE, verbose = TRUE){
+                            consistentOutputType = TRUE, nrOfClusters = 1, verbose = TRUE){
   
   check_emuDBhandle(emuDBhandle)
   
@@ -235,7 +236,7 @@
   bndls = list_bundles(emuDBhandle)
   
   # make cluster
-  cl <- parallel::makeCluster(2)
+  cl <- parallel::makeCluster(nrOfClusters)
   
   # export variables
   parallel::clusterExport(cl, 

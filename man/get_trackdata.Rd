@@ -9,7 +9,7 @@ get_trackdata(emuDBhandle, seglist = NULL, ssffTrackName = NULL,
   cut = NULL, npoints = NULL, onTheFlyFunctionName = NULL,
   onTheFlyParams = NULL, onTheFlyOptLogFilePath = NULL,
   resultType = "trackdata", consistentOutputType = TRUE,
-  verbose = TRUE)
+  nrOfClusters = 1, verbose = TRUE)
 }
 \arguments{
 \item{emuDBhandle}{emuDB handle as returned by \code{\link{load_emuDB}}}
@@ -55,6 +55,8 @@ parameter one wishes to change.}
 to \code{FALSE} if the following legacy \code{emu.track} output conversion behaviour is desired: If the \code{cut} parameter is not set (the default) an object of type \code{\link{trackdata}} 
 is returned. If \code{cut} is set and \code{npoints} is not, or the seglist 
 is of type event and npoints is not set, a \code{\link{data.frame}} is returned (see the \code{consistentOutputType} to change this behaviour).}
+
+\item{nrOfClusters}{nr of clusters created (see \code{parallel::makeCluster}) when processing the \code{seglist} entries.}
 
 \item{verbose}{Show progress bars and further information}
 }
