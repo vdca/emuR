@@ -1,10 +1,22 @@
-# emuR 1.1.0.9000
+# emuR 1.1.1.9000
+
+## new features / performance tweaks / improvements
+
+## bug fixes
+
+* https default on serve
+
+
+# emuR 1.1.1
 
 ## new features / performance tweaks / improvements
 
 ## bug fixes
 
 * fixed bad column init. in `normalize_length()` column
+* removed detritus LaTex files (e.g. .log, .aux) from `vignette/pics` directory (as requested by CRAN maintainer)
+
+# emuR 1.1.0
 
 ## new features / performance tweaks / improvements
 
