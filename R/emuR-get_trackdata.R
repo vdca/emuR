@@ -239,197 +239,209 @@
   cl <- parallel::makeCluster(nrOfClusters)
   
   # export variables
-  parallel::clusterExport(cl, 
+  parallel::clusterExport(cl,
                           list("emuDBhandle",
                                "DBconfig",
-                               "seglist", 
-                               "onTheFlyFunctionName", 
+                               "seglist",
+                               "onTheFlyFunctionName",
                                "funcFormals",
                                "session.suffix",
                                "bundle.dir.suffix",
-                               "trackDef"), 
+                               "trackDef"),
                           envir=environment())
   # export wrassp package
   # parallel::clusterEvalQ(cl, library(wrassp))  
   
   if (verbose == T && requireNamespace("pbapply", quietly = TRUE)) {
     get_td_lapply = pbapply::pblapply
+    # get_td_lapply = lapply
   } else {
     get_td_lapply = parallel::parLapply
+    # get_td_lapply = lapply
   }
   
+  seglist$get_td_sl_rowIdx = 1:nrow(seglist)
+  
+  # TODO check if tibble -> utts = session + bundle
+  seglist$get_td_utts = factor(seglist$utts, levels = unique(seglist$utts))
+  
+  seglist_by_utts = split(seglist, seglist$get_td_utts)
+  
   # loop through seglist (in parallel on cluster)
-  data_list = get_td_lapply(cl = cl, 
-                            1:nrow(seglist), 
-                            function(i){
-                              
-                              if(!("emuRsegs" %in% class(seglist)) & !("tbl_df" %in% class(seglist))){
-                                curUtt = seglist$utts[i]
-                                splUtt = stringr::str_split(curUtt, ':')[[1]]
-                              }else{
-                                splUtt = c(seglist$session[i], seglist$bundle[i])
-                                curUtt = paste0(splUtt[1], ":", splUtt[2])
-                              }
-                              
-                              # check if utts entry exists
-                              if(!any(bndls$session == splUtt[1] & bndls$name == splUtt[2])){
-                                stop("Following bundle/utts entry not found: ", seglist$utts[i])
-                              }
-                              
-                              ################
-                              #get data object
-                              
-                              if(!is.null(onTheFlyFunctionName)){
-                                
-                                funcFormals$listOfFiles = file.path(emuDBhandle$basePath, 
-                                                                    paste0(splUtt[1], session.suffix), 
-                                                                    paste0(splUtt[2], bundle.dir.suffix), 
-                                                                    paste0(splUtt[2], ".", DBconfig$mediafileExtension))
-                                
-                                # calculate_segments_only = FALSE
-                                
-                                # if(calculate_segments_only){
-                                #   funcFormals$beginTime = seglist$start[i]/1000
-                                #   funcFormals$endTime = seglist$end[i]/1000
-                                # }
-                                # only perform calculation if curUtt is not equal to preUtt
-                                # if(curUtt != prevUtt){
-                                  curDObj = do.call(onTheFlyFunctionName, funcFormals)
-                                # }
-                              }else{
-                                fpath <- file.path(emuDBhandle$basePath, 
-                                                   paste0(splUtt[1], session.suffix), 
-                                                   paste0(splUtt[2], bundle.dir.suffix), 
-                                                   paste0(splUtt[2], ".", trackDef[[1]]$fileExtension))
-                                
-                                # only perform calculation if curUtt is not equal to preUtt
-                                # if(curUtt != prevUtt){
-                                  curDObj <- wrassp::read.AsspDataObj(fpath)
-                                # }
-                              }
-                              
-                              # set origFreq 
-                              origFreq <- attr(curDObj, "origFreq")
-                              
-                              # set first index start value (always 1 in parallel processing)
-                              # corrected afterwards
-                              curIndexStart = 1
-                              
-                              # set curStart+curEnd
-                              curStart <- seglist$start[i]
-                              if(sum(seglist$end) == 0){
-                                curEnd <- seglist$start[i]
-                              }else{
-                                curEnd <- seglist$end[i]
-                              }
-                              
-                              
-                              fSampleRateInMS <- (1 / attr(curDObj, "sampleRate")) * 1000
-                              fStartTime <- attr(curDObj, "startTime") * 1000
-                              # add one on if event to be able to capture in breakValues 
-                              if(sum(seglist$end) == 0){ # if event seglist
-                                if(npoints == 1 || is.null(npoints)){
-                                  timeStampSeq <- seq(fStartTime, curEnd + fSampleRateInMS, fSampleRateInMS)
-                                }else{
-                                  timeStampSeq <- seq(fStartTime, curEnd + fSampleRateInMS * npoints, fSampleRateInMS)
-                                }
-                              }else{
-                                if(npoints == 1 || is.null(npoints)){
-                                  timeStampSeq <- seq(fStartTime, curEnd, fSampleRateInMS)
-                                }else{
-                                  timeStampSeq <- seq(fStartTime, curEnd + fSampleRateInMS * npoints, fSampleRateInMS)
-                                }
-                              }
-                              
-                              ##################################################
-                              # search for first element larger than start time
-                              breakVal <- -1
-                              for (j in 1:length(timeStampSeq)){
-                                if (timeStampSeq[j] >= curStart){
-                                  breakVal <- j
-                                  break
-                                }
-                              }
-                              
-                              # check if breakVal was found
-                              if(breakVal == -1){
-                                stop("No track samples found belonging to sl_rowIdx: ", i, " with values: ", paste0(seglist[i,], collapse = " "), 
-                                     "! This is probably due to a very short SEGMENT that doesn't contain any '", ssffTrackName, "' values.")
-                              }
-                              
-                              curStartDataIdx <- breakVal
-                              curEndDataIdx <- length(timeStampSeq)
-                              
-                              
-                              ################
-                              # extract data
-                              tmpData <- curDObj[[trackDef[[1]]$columnName]]
-                              
-                              #############################################################
-                              # set curIndexEnd dependant on if event/segment/cut/npoints
-                              if(!is.null(cut) || sum(seglist$end) == 0){
-                                if(sum(seglist$end) == 0){
-                                  cutTime = curStart
-                                  curEndDataIdx <- curStartDataIdx
-                                  curStartDataIdx <- curStartDataIdx - 1 # last to elements are relevant -> move start to left
-                                }else{
-                                  cutTime = curStart + (curEnd - curStart) * cut
-                                }
-                                
-                                sampleTimes = timeStampSeq[curStartDataIdx:curEndDataIdx]
-                                closestIdx = which.min(abs(sampleTimes - cutTime))
-                                cutTimeSampleIdx = curStartDataIdx + closestIdx - 1
-                                
-                                if(is.null(npoints) || npoints == 1){
-                                  # reset data idxs
-                                  curStartDataIdx <- curStartDataIdx + closestIdx - 1
-                                  curEndDataIdx <- curStartDataIdx
-                                  curIndexEnd <- curIndexStart
-                                }else{
-                                  # reset data idx
-                                  halfNpoints = (npoints - 1) / 2 # -1 removes cutTimeSample
-                                  curStartDataIdx <- cutTimeSampleIdx - floor(halfNpoints)
-                                  curEndDataIdx <- cutTimeSampleIdx + ceiling(halfNpoints)
-                                  curIndexEnd <- curIndexStart + npoints - 1
-                                }
-                                
-                              }else{
-                                # normal segments
-                                curIndexEnd <- curIndexStart + curEndDataIdx - curStartDataIdx
-                              }
-
-                              #############################
-                              # calculate size of and create new data matrix
-                              rowSeq <- seq(timeStampSeq[curStartDataIdx], timeStampSeq[curEndDataIdx], fSampleRateInMS) 
-                              curData <- matrix(ncol = ncol(tmpData), nrow = length(rowSeq))
-                              
-                              # check if it is possible to extract curData 
-                              if(curStartDataIdx > 0 && curEndDataIdx <= dim(tmpData)[1]){
-                                curData[,] <- tmpData[curStartDataIdx:curEndDataIdx,]
-                              }else{
-                                entry = paste(seglist[i,], collapse = " ")
-                                stop('Can not extract data for the ', i, 'th row of the segment list: ', entry, ' start and/or end times out of bounds')
-                              }
-                              
-                              
-                              # return matrix of the form:
-                              # 1. columns is the segment index
-                              # 2. column is times stamp row names
-                              # 3. column is the index start
-                              # 4. column is the index end
-                              # 5. column is ftime start
-                              # 6. column is ftime end
-                              # 7. column is the original freq
-                              # 8-nth column is the data
-                              return(cbind(i, 
-                                           rowSeq, 
-                                           curIndexStart, 
-                                           curIndexEnd, 
-                                           curFtimeStart = timeStampSeq[curStartDataIdx], 
-                                           curFtimeEnd = timeStampSeq[curEndDataIdx],
-                                           origFreq,
-                                           curData))
-                            })
+  data_list = lapply(cl = cl, # used to be get_td_lapply
+                     1:length(seglist_by_utts), 
+                     function(i){
+                       for(j in 1:nrow(seglist_by_utts[[1]])){
+                         
+                         if(!("emuRsegs" %in% class(seglist)) & !("tbl_df" %in% class(seglist))){
+                           curUtt = seglist_by_utts[[i]]$utts[i]
+                           splUtt = stringr::str_split(curUtt, ':')[[1]]
+                         }else{
+                           splUtt = c(seglist_by_utts[[i]]$session[j], seglist_by_utts[[i]]$bundle[j])
+                           curUtt = paste0(splUtt[1], ":", splUtt[2])
+                         }
+                         
+                         # check if utts entry exists
+                         if(!any(bndls$session == splUtt[1] & bndls$name == splUtt[2])){
+                           stop("Following bundle/utts entry not found: ", seglist$utts[j])
+                         }
+                         
+                         ################
+                         #get data object
+                         
+                         if(!is.null(onTheFlyFunctionName)){
+                           
+                           funcFormals$listOfFiles = file.path(emuDBhandle$basePath, 
+                                                               paste0(splUtt[1], session.suffix), 
+                                                               paste0(splUtt[2], bundle.dir.suffix), 
+                                                               paste0(splUtt[2], ".", DBconfig$mediafileExtension))
+                           
+                           calculate_segments_only = TRUE
+                           
+                           if(calculate_segments_only){
+                             funcFormals$beginTime = seglist$start[j] / 1000
+                             funcFormals$endTime = seglist$end[j] / 1000
+                           }
+                           # only perform calculation if curUtt is not equal to preUtt
+                           browser()
+                           # if(curUtt != prevUtt){
+                           curDObj = do.call(onTheFlyFunctionName, funcFormals)
+                           # }
+                         }else{
+                           fpath <- file.path(emuDBhandle$basePath, 
+                                              paste0(splUtt[1], session.suffix), 
+                                              paste0(splUtt[2], bundle.dir.suffix), 
+                                              paste0(splUtt[2], ".", trackDef[[1]]$fileExtension))
+                           
+                           # only perform calculation if curUtt is not equal to preUtt
+                           # if(curUtt != prevUtt){
+                           curDObj <- wrassp::read.AsspDataObj(fpath)
+                           # }
+                         }
+                         
+                         # set origFreq 
+                         origFreq <- attr(curDObj, "origFreq")
+                         
+                         # set first index start value (always 1 in parallel processing)
+                         # corrected afterwards
+                         curIndexStart = 1
+                         
+                         # set curStart+curEnd
+                         curStart <- seglist$start[i]
+                         if(sum(seglist$end) == 0){
+                           curEnd <- seglist$start[i]
+                         }else{
+                           curEnd <- seglist$end[i]
+                         }
+                         
+                         
+                         fSampleRateInMS <- (1 / attr(curDObj, "sampleRate")) * 1000
+                         fStartTime <- attr(curDObj, "startTime") * 1000
+                         # add one on if event to be able to capture in breakValues 
+                         if(sum(seglist$end) == 0){ # if event seglist
+                           if(npoints == 1 || is.null(npoints)){
+                             timeStampSeq <- seq(fStartTime, curEnd + fSampleRateInMS, fSampleRateInMS)
+                           }else{
+                             timeStampSeq <- seq(fStartTime, curEnd + fSampleRateInMS * npoints, fSampleRateInMS)
+                           }
+                         }else{
+                           if(npoints == 1 || is.null(npoints)){
+                             timeStampSeq <- seq(fStartTime, curEnd, fSampleRateInMS)
+                           }else{
+                             timeStampSeq <- seq(fStartTime, curEnd + fSampleRateInMS * npoints, fSampleRateInMS)
+                           }
+                         }
+                         
+                         ##################################################
+                         # search for first element larger than start time
+                         breakVal <- -1
+                         for (j in 1:length(timeStampSeq)){
+                           if (timeStampSeq[j] >= curStart){
+                             breakVal <- j
+                             break
+                           }
+                         }
+                         
+                         # check if breakVal was found
+                         if(breakVal == -1){
+                           stop("No track samples found belonging to sl_rowIdx: ", i, " with values: ", paste0(seglist[i,], collapse = " "), 
+                                "! This is probably due to a very short SEGMENT that doesn't contain any '", ssffTrackName, "' values.")
+                         }
+                         
+                         curStartDataIdx <- breakVal
+                         curEndDataIdx <- length(timeStampSeq)
+                         
+                         
+                         ################
+                         # extract data
+                         tmpData <- curDObj[[trackDef[[1]]$columnName]]
+                         
+                         #############################################################
+                         # set curIndexEnd dependant on if event/segment/cut/npoints
+                         if(!is.null(cut) || sum(seglist$end) == 0){
+                           if(sum(seglist$end) == 0){
+                             cutTime = curStart
+                             curEndDataIdx <- curStartDataIdx
+                             curStartDataIdx <- curStartDataIdx - 1 # last to elements are relevant -> move start to left
+                           }else{
+                             cutTime = curStart + (curEnd - curStart) * cut
+                           }
+                           
+                           sampleTimes = timeStampSeq[curStartDataIdx:curEndDataIdx]
+                           closestIdx = which.min(abs(sampleTimes - cutTime))
+                           cutTimeSampleIdx = curStartDataIdx + closestIdx - 1
+                           
+                           if(is.null(npoints) || npoints == 1){
+                             # reset data idxs
+                             curStartDataIdx <- curStartDataIdx + closestIdx - 1
+                             curEndDataIdx <- curStartDataIdx
+                             curIndexEnd <- curIndexStart
+                           }else{
+                             # reset data idx
+                             halfNpoints = (npoints - 1) / 2 # -1 removes cutTimeSample
+                             curStartDataIdx <- cutTimeSampleIdx - floor(halfNpoints)
+                             curEndDataIdx <- cutTimeSampleIdx + ceiling(halfNpoints)
+                             curIndexEnd <- curIndexStart + npoints - 1
+                           }
+                           
+                         }else{
+                           # normal segments
+                           curIndexEnd <- curIndexStart + curEndDataIdx - curStartDataIdx
+                         }
+                         
+                         #############################
+                         # calculate size of and create new data matrix
+                         rowSeq <- seq(timeStampSeq[curStartDataIdx], timeStampSeq[curEndDataIdx], fSampleRateInMS) 
+                         curData <- matrix(ncol = ncol(tmpData), nrow = length(rowSeq))
+                         
+                         # check if it is possible to extract curData 
+                         if(curStartDataIdx > 0 && curEndDataIdx <= dim(tmpData)[1]){
+                           curData[,] <- tmpData[curStartDataIdx:curEndDataIdx,]
+                         }else{
+                           entry = paste(seglist[i,], collapse = " ")
+                           stop('Can not extract data for the ', i, 'th row of the segment list: ', entry, ' start and/or end times out of bounds')
+                         }
+                         
+                         
+                         # return matrix of the form:
+                         # 1. columns is the segment index
+                         # 2. column is times stamp row names
+                         # 3. column is the index start
+                         # 4. column is the index end
+                         # 5. column is ftime start
+                         # 6. column is ftime end
+                         # 7. column is the original freq
+                         # 8-nth column is the data
+                         return(cbind(i, 
+                                      rowSeq, 
+                                      curIndexStart, 
+                                      curIndexEnd, 
+                                      curFtimeStart = timeStampSeq[curStartDataIdx], 
+                                      curFtimeEnd = timeStampSeq[curEndDataIdx],
+                                      origFreq,
+                                      curData))
+                       }
+                     })
   
   parallel::stopCluster(cl)
   
