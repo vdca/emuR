@@ -56,7 +56,7 @@ to \code{FALSE} if the following legacy \code{emu.track} output conversion behav
 is returned. If \code{cut} is set and \code{npoints} is not, or the seglist 
 is of type event and npoints is not set, a \code{\link{data.frame}} is returned (see the \code{consistentOutputType} to change this behaviour).}
 
-\item{nrOfClusters}{nr of clusters created (see \code{parallel::makeCluster}) when processing the \code{seglist} entries.}
+\item{nrOfClusters}{number of clusters created (see \code{parallel::makeCluster}) when processing the \code{seglist} entries.}
 
 \item{verbose}{Show progress bars and further information}
 }

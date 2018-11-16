@@ -117,10 +117,11 @@ create_emuRtrackdata <- function(sl, td){
 ##' @param N specify length of normalized segments (each segment in resulting
 ##' object will consist of \code{N} rows).
 ##' @param colNames character vector containing names of columns to normalize. If not set all data columns are normalized (T1-TN as well as other numeric columns).
+##' @param nrOfClusters number of clusters created (see \code{parallel::makeCluster}) when processing entries.
 ##' @return data.frame like object containing the length normalized segments
 ##' @seealso \code{\link{emuRtrackdata} \link{emuRsegs}}
 ##' @export
-"normalize_length" <-function(x, colNames = NULL, N = 21){
+"normalize_length" <-function(x, colNames = NULL, N = 21, nrOfClusters = 1){
   
   nonDataColNames = c("sl_rowIdx", "labels", "start", "end", "utts", "db_uuid", "session", 
                       "bundle", "start_item_id", "end_item_id", "level", "start_item_seq_idx",
@@ -148,23 +149,26 @@ create_emuRtrackdata <- function(sl, td){
   resLen = length(urowIdx) * N
   
   # preallocate resulting tibble
-  res_tbl = tibble::tibble(sl_rowIdx = integer(resLen), labels = character(resLen), start = double(resLen), 
-                           end = double(resLen), utts = character(resLen), db_uuid = character(resLen), 
-                           session = character(resLen), bundle = character(resLen), start_item_id = integer(resLen), 
-                           end_item_id = integer(resLen), level = integer(resLen), start_item_seq_idx = integer(resLen),
-                           end_item_seq_idx = integer(resLen), type = integer(resLen), sample_start = integer(resLen), 
-                           sample_end = integer(resLen), sample_rate = integer(resLen), times_orig = double(resLen), 
-                           times_rel = double(resLen), times_norm = double(resLen))
+  # res_tbl = tibble::tibble(sl_rowIdx = integer(resLen), labels = character(resLen), start = double(resLen), 
+  #                          end = double(resLen), utts = character(resLen), db_uuid = character(resLen), 
+  #                          session = character(resLen), bundle = character(resLen), start_item_id = integer(resLen), 
+  #                          end_item_id = integer(resLen), level = integer(resLen), start_item_seq_idx = integer(resLen),
+  #                          end_item_seq_idx = integer(resLen), type = integer(resLen), sample_start = integer(resLen), 
+  #                          sample_end = integer(resLen), sample_rate = integer(resLen), times_orig = double(resLen), 
+  #                          times_rel = double(resLen), times_norm = double(resLen))
   
   # add other columns that are not emuRsegsColNames, hence added columns
-  for(colName in additional_cols){
-    res_tbl[,colName] = NA # add empty column
-    class(res_tbl[[colName]]) = class(x[[colName]]) # set col column class
-  }
+  # for(colName in additional_cols){
+  #   res_tbl[,colName] = NA # add empty column
+  #   class(res_tbl[[colName]]) = class(x[[colName]]) # set col column class
+  # }
+  # 
+  # segNr = 1
   
-  segNr = 1
+  # make cluster
+  cl <- parallel::makeCluster(nrOfClusters)
   
-  for (i in unique(x$sl_rowIdx)){
+  res_list = parallel::parLapply(cl, unique(x$sl_rowIdx),  function(i){
     # get current segment and remove unwanted columns
     eRtd = x[x$sl_rowIdx == i, names(x) %in% c(nonDataColNames, additional_cols)]
     
@@ -188,14 +192,20 @@ create_emuRtrackdata <- function(sl, td){
     eRtd.normtemp$times_orig = seq(unique(eRtd.normtemp$start), unique(eRtd.normtemp$end),length.out = N)
     eRtd.normtemp$times_rel = seq(0,unique(eRtd.normtemp$end) - unique(eRtd.normtemp$start), length.out = N)
     
-    curRowIdxStart = segNr * N - N + 1
-    curRowIdxEnd = segNr * N
+    # curRowIdxStart = segNr * N - N + 1
+    # curRowIdxEnd = segNr * N
     
-    res_tbl[curRowIdxStart:curRowIdxEnd,] = eRtd.normtemp
+    # res_tbl[curRowIdxStart:curRowIdxEnd,] = eRtd.normtemp
     
-    segNr = segNr + 1
+    # segNr = segNr + 1
+    return(eRtd.normtemp)
     
-  }
+  })
+  
+  parallel::stopCluster(cl)
+  
+  res_tbl = do.call(rbind, res_list)
+  
   return(res_tbl)
 }
 
