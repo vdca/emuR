@@ -452,11 +452,11 @@
   
   # index & ftime
   index_ftime_uniq = as.data.frame(data) %>% 
-    dplyr::group_by(i) %>% 
-    dplyr::summarise(curIndexStart = unique(curIndexStart), 
-                     curIndexEnd = unique(curIndexEnd),
-                     curFtimeStart = unique(curFtimeStart),
-                     curFtimeEnd = unique(curFtimeEnd))
+    dplyr::group_by(.data$i) %>% 
+    dplyr::summarise(curIndexStart = unique(.data$curIndexStart), 
+                     curIndexEnd = unique(.data$curIndexEnd),
+                     curFtimeStart = unique(.data$curFtimeStart),
+                     curFtimeEnd = unique(.data$curFtimeEnd))
   
   index = cbind(index_ftime_uniq$curIndexStart, index_ftime_uniq$curIndexEnd)
   ftime = cbind(index_ftime_uniq$curFtimeStart, index_ftime_uniq$curFtimeEnd)
