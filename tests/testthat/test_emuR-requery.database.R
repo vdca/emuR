@@ -4,9 +4,9 @@ require(emuR)
 
 context("testing requeries")
 
-.aeSampleRate=20000
+.aeSampleRate = 20000
 
-.test_emu_ae_db=NULL
+.test_emu_ae_db = NULL
 # .test_emu_ae_db_uuid='3f627b7b-4fb5-4b4a-8c79-b5f49df4df25'
 .test_emu_ae_db_uuid = "0fc618dc-8980-414d-8c7a-144a649ce199"
 .test_emu_ae_db_dir=NULL
@@ -34,17 +34,17 @@ test_that("requeries work on ae",{
   test_that("Requery sequential",{
     
     # Phoneme sequences n->t
-    sl1=query(ae, "[Phoneme=n -> Phoneme=t]")
+    sl1 = query(ae, "[Phoneme=n -> Phoneme=t]")
     # requery two elemnts before and one after sequence
-    rsl1=requery_seq(ae, sl1, offset=-2, length=5)
-    rsl2=requery_seq(ae, sl1, offset=-3, length=5,offsetRef = 'END')
+    rsl1 = requery_seq(ae, sl1, offset=-2, length=5)
+    rsl2 = requery_seq(ae, sl1, offset=-3, length=5,offsetRef = 'END')
     
     # equivalent requery results should be equal
-    expect_equal(rsl1,rsl2)
+    expect_equal(rsl1, rsl2)
     
-    expect_that(class(rsl1),is_identical_to(c('emuRsegs','emusegs','data.frame')))
-    expect_that(nrow(sl1),equals(2))
-    expect_that(nrow(rsl1),equals(2))
+    expect_that(class(rsl1), is_identical_to(c('emuRsegs', 'emusegs', 'data.frame')))
+    expect_that(nrow(sl1), equals(2))
+    expect_that(nrow(rsl1), equals(2))
     expect_that('[.data.frame'(rsl1,1,'labels'),is_equivalent_to('l->@->n->t->l'))
     expect_that('[.data.frame'(rsl1,1,'start_item_id'),equals(144))
     expect_that('[.data.frame'(rsl1,1,'end_item_id'),equals(148))
@@ -54,13 +54,13 @@ test_that("requeries work on ae",{
     expect_that('[.data.frame'(rsl1,2,'end_item_id'),equals(105))
     
     # Bug ID 42
-    sl1=query(ae, "[[Phonetic=k -> Phonetic=~.*]->Phonetic=~.*]")
-    sl1w=suppressWarnings(requery_hier(ae, sl1,level='Word', verbose = F)) # this will throw a warning because sl1 has 8 rows and sl1w has 7 msajc023 k->H->s not dominated by single C
+    sl1 = query(ae, "[[Phonetic = k -> Phonetic =~ .*] -> Phonetic =~ .*]")
+    sl1w = requery_hier(ae, sl1, level='Word', verbose = F)
     # sl1w has sequence length 1
-    sl1w2=requery_seq(ae, sl1w[1,])
+    sl1w2 = requery_seq(ae, sl1w[2,])
     # Bug startItemID != endItemID, and label is not a sequence !!
-    expect_that('[.data.frame'(sl1w2,1,'start_item_id'),equals(61))
-    expect_that('[.data.frame'(sl1w2,1,'end_item_id'),equals(61))
+    expect_that('[.data.frame'(sl1w2, 1, 'start_item_id'), equals(61))
+    expect_that('[.data.frame'(sl1w2, 1, 'end_item_id'),equals(61))
     
   })
   
@@ -91,13 +91,13 @@ test_that("requeries work on ae",{
   test_that("Requery hierarchical",{
     
     # Text beginning with 'a'
-    sl1=query(ae, "Text=~'a[mn].*'")
+    sl1 = query(ae, "Text =~ 'a[mn].*'")
     # requery to level Phoneme
-    rsl1=suppressWarnings(requery_hier(ae, sl1, level='Phoneme'))
-    expect_that(class(rsl1),is_identical_to(c('emuRsegs','emusegs','data.frame')))
-    expect_that(nrow(sl1),equals(3))
-    expect_that(nrow(rsl1),equals(3))
-    expect_that('[.data.frame'(rsl1,1,'labels'),is_equivalent_to('V->m->V->N->s->t'))
+    rsl1 = requery_hier(ae, sl1, level = 'Phoneme')
+    expect_that(class(rsl1), is_identical_to(c('emuRsegs', 'emusegs', 'data.frame')))
+    expect_that(nrow(sl1), equals(3))
+    expect_that(nrow(rsl1), equals(3))
+    expect_that('[.data.frame'(rsl1, 1, 'labels'), is_equivalent_to('V -> m-> V -> N -> s -> t'))
     expect_that('[.data.frame'(rsl1,1,'start_item_id'),equals(114))
     expect_that('[.data.frame'(rsl1,1,'end_item_id'),equals(119))
     
@@ -181,6 +181,30 @@ test_that("requeries work on ae",{
   })
   
     
+  test_that("requery_hier inserts NAs",{
+    
+    # delete link to check if NA is inserted
+    DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc003' AND from_id = 115 AND to_id = 148")
+    DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc012' AND from_id = 134 AND to_id = 169")
+    rewrite_annots(ae)
+
+    # parent requery
+    sl = query(ae, "Phonetic == m", resultType = "tibble")
+
+    requery_hier(ae, sl, level = "Phoneme", resultType = "tibble")
+
+    # child reuqery
+    sl = query(ae, "Phoneme == m", resultType = "tibble", calcTimes = T)
+    
+    # requery_hier(ae, sl, level = "Phoneme", resultType = "tibble")
+    
+    # over multiple levels
+    sl = query(ae, "Phonetic == m", resultType = "tibble")
+    
+    requery_hier(ae, sl, level = "Text", resultType = "tibble")
+    
+  })
+  
   # clean up (also disconnects)
   DBI::dbDisconnect(ae$connection)
   ae = NULL

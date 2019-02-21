@@ -27,6 +27,7 @@ test_that("errors are thrown on bad inputs", {
                                                                   level = "",
                                                                   sequenceIndex = "",
                                                                   attribute = "",
+                                                                  
                                                                   labels = "",
                                                                   stringsAsFactors = F)))
 
