@@ -26,16 +26,20 @@ dir.create(.test_emu_ae_db_dir)
 file.copy(file.path(path2demoData, paste0('ae', emuDB.suffix)), .test_emu_ae_db_dir, recursive = T)
 
 
-ae = load_emuDB(file.path(.test_emu_ae_db_dir, paste0('ae', emuDB.suffix)), inMemoryCache = internalVars$testingVars$inMemoryCache, verbose=FALSE)
-expect_that(ae$dbName,is_equivalent_to('ae'))
+ae = load_emuDB(file.path(.test_emu_ae_db_dir, 
+                          paste0('ae', emuDB.suffix)), 
+                inMemoryCache = internalVars$testingVars$inMemoryCache, 
+                verbose=FALSE)
+
+expect_that(ae$dbName, is_equivalent_to('ae'))
 
 test_that("Requery sequential",{
   
   # Phoneme sequences n->t
   sl1 = query(ae, "[Phoneme=n -> Phoneme=t]")
   # requery two elemnts before and one after sequence
-  rsl1 = requery_seq(ae, sl1, offset=-2, length=5)
-  rsl2 = requery_seq(ae, sl1, offset=-3, length=5,offsetRef = 'END')
+  rsl1 = requery_seq(ae, sl1, offset = -2, length = 5)
+  rsl2 = requery_seq(ae, sl1, offset = -3, length = 5, offsetRef = 'END')
   
   # equivalent requery results should be equal
   expect_equal(rsl1, rsl2)
@@ -43,13 +47,13 @@ test_that("Requery sequential",{
   expect_that(class(rsl1), is_identical_to(c('emuRsegs', 'emusegs', 'data.frame')))
   expect_that(nrow(sl1), equals(2))
   expect_that(nrow(rsl1), equals(2))
-  expect_that('[.data.frame'(rsl1,1,'labels'),is_equivalent_to('l->@->n->t->l'))
-  expect_that('[.data.frame'(rsl1,1,'start_item_id'),equals(144))
-  expect_that('[.data.frame'(rsl1,1,'end_item_id'),equals(148))
+  expect_that('[.data.frame'(rsl1, 1, 'labels'), is_equivalent_to('l->@->n->t->l'))
+  expect_that('[.data.frame'(rsl1, 1, 'start_item_id'), equals(144))
+  expect_that('[.data.frame'(rsl1, 1, 'end_item_id'), equals(148))
   
-  expect_that('[.data.frame'(rsl1,2,'labels'),is_equivalent_to('s->@->n->t->ei'))
-  expect_that('[.data.frame'(rsl1,2,'start_item_id'),equals(101))
-  expect_that('[.data.frame'(rsl1,2,'end_item_id'),equals(105))
+  expect_that('[.data.frame'(rsl1, 2, 'labels'), is_equivalent_to('s->@->n->t->ei'))
+  expect_that('[.data.frame'(rsl1, 2, 'start_item_id'), equals(101))
+  expect_that('[.data.frame'(rsl1, 2, 'end_item_id'), equals(105))
   
   # Bug ID 42
   sl1 = query(ae, "[[Phonetic = k -> Phonetic =~ .*] -> Phonetic =~ .*]")
@@ -58,7 +62,7 @@ test_that("Requery sequential",{
   sl1w2 = requery_seq(ae, sl1w[2,])
   # Bug startItemID != endItemID, and label is not a sequence !!
   expect_that('[.data.frame'(sl1w2, 1, 'start_item_id'), equals(61))
-  expect_that('[.data.frame'(sl1w2, 1, 'end_item_id'),equals(61))
+  expect_that('[.data.frame'(sl1w2, 1, 'end_item_id'), equals(61))
   
 })
 
@@ -96,33 +100,33 @@ test_that("Requery hierarchical",{
   expect_that(nrow(sl1), equals(3))
   expect_that(nrow(rsl1), equals(3))
   expect_that('[.data.frame'(rsl1, 1, 'labels'), is_equivalent_to('V->m->V->N->s->t'))
-  expect_that('[.data.frame'(rsl1,1,'start_item_id'),equals(114))
-  expect_that('[.data.frame'(rsl1,1,'end_item_id'),equals(119))
+  expect_that('[.data.frame'(rsl1, 1, 'start_item_id'), equals(114))
+  expect_that('[.data.frame'(rsl1, 1, 'end_item_id'), equals(119))
   
-  expect_that('[.data.frame'(rsl1,2,'labels'),is_equivalent_to('E->n->i:'))
-  expect_that('[.data.frame'(rsl1,2,'start_item_id'),equals(135))
-  expect_that('[.data.frame'(rsl1,2,'end_item_id'),equals(137))
+  expect_that('[.data.frame'(rsl1, 2, 'labels'), is_equivalent_to('E->n->i:'))
+  expect_that('[.data.frame'(rsl1, 2, 'start_item_id'), equals(135))
+  expect_that('[.data.frame'(rsl1, 2, 'end_item_id'), equals(137))
   
-  expect_that('[.data.frame'(rsl1,3,'labels'),is_equivalent_to('@->n'))
-  expect_that('[.data.frame'(rsl1,3,'start_item_id'),equals(102))
-  expect_that('[.data.frame'(rsl1,3,'end_item_id'),equals(103))
+  expect_that('[.data.frame'(rsl1, 3, 'labels'), is_equivalent_to('@->n'))
+  expect_that('[.data.frame'(rsl1, 3, 'start_item_id'), equals(102))
+  expect_that('[.data.frame'(rsl1, 3, 'end_item_id'), equals(103))
   
 })
 
 test_that("Requery hierarchical with collapse works",{
   
   # Text beginning with 'a'
-  sl1=query(ae, "Text=~'a[mn].*'")
+  sl1 = query(ae, "Text=~'a[mn].*'")
   # requery to level Phoneme
-  rsl1=suppressWarnings(requery_hier(ae, sl1,level='Phonetic', collapse = F, verbose = F))
+  rsl1 = suppressWarnings(requery_hier(ae, sl1, level = 'Phonetic', collapse = F, verbose = F))
   allLabels = paste0(rsl1$labels, collapse = "->")
   expect_equal(allLabels, "V->m->V->N->s->t->H->E->n->i:->@->n")
 })
 
 test_that("hierarchical requery on same attrDef without times calculates missing times",{
   
-  slTimes=query(ae, "Word=~.*", calcTimes = T)
-  slNoTime=query(ae, "Word=~.*", calcTimes = F)
+  slTimes = query(ae, "Word=~.*", calcTimes = T)
+  slNoTime = query(ae, "Word=~.*", calcTimes = F)
   
   # requery to same attrDef
   slRq = requery_hier(ae, slNoTime, level='Word')
