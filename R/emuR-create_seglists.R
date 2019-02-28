@@ -50,7 +50,8 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                           filteredTablesSuffix, 
                                           queryStr = "", 
                                           calcTimes = TRUE, 
-                                          preserveLength = FALSE,
+                                          preserveLeafLength = F,
+                                          preserveAnchorLength = F,
                                           verbose){
   
   itemsTableName = paste0("items", filteredTablesSuffix)
@@ -73,8 +74,8 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
   }
   # check for empty result 
   itemsN = DBI::dbGetQuery(emuDBhandle$connection, paste0("SELECT COUNT(*) AS n FROM interm_res_items_tmp_root"))$n
+
   if(itemsN > 0 ){
-    
     # use "normal" items
     itsTableName = "interm_res_items_tmp_root"
     seqStartIdColName = "seq_start_id"
@@ -250,7 +251,7 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                     ""))
       
       # set type of join depending on preserveLength arg (prob. should update agrument name of query_databaseHier() to something like: perserveLeafLength)
-      if(preserveLength){
+      if(preserveLeafLength | preserveAnchorLength){
         joinType = "LEFT JOIN"
       }else{
         joinType = "INNER JOIN"
@@ -263,6 +264,8 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                          rightTableSuffix = "root", 
                          filteredTablesSuffix, 
                          minMaxSeqIdxLeafOnly = F,
+                         preserveLeafLength = preserveLeafLength,
+                         preserveAnchorLength = preserveAnchorLength,
                          verbose = verbose) # result written to lr_exp_res_tmp table
       
       # calculate left and right times and store in tmp table

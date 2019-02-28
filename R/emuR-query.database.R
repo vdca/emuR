@@ -978,8 +978,8 @@ query_databaseHier <- function(emuDBhandle,
                                                       " AND lft.bundle = ift.bundle ",
                                                       " AND lft.", itemIdMatch, " = ift.item_id ",
                                                       " AND ift.level = '", nextLevelName, "' ",
-                                                      "WHERE (stn.seq_start_id IS NOT NULL AND ift.db_uuid IS NOT NULL) ",
-                                                      "OR (stn.seq_start_id IS NULL) ",
+                                                      #"WHERE (stn.seq_start_id IS NOT NULL AND ift.db_uuid IS NOT NULL) ",
+                                                      #"OR (stn.seq_start_id IS NULL) ",
                                                       ""))
         
         # walk up right side of trapeze
@@ -1015,8 +1015,8 @@ query_databaseHier <- function(emuDBhandle,
                                                       " AND lft.bundle = ift.bundle ", 
                                                       " AND lft.", itemIdMatch, " = ift.item_id ",
                                                       " AND ift.level = '", nextLevelName, "' ",
-                                                      "WHERE (stn.seq_start_id IS NOT NULL AND ift.db_uuid IS NOT NULL) ",
-                                                      "OR (stn.seq_start_id IS NULL) ",
+                                                      # "WHERE (stn.seq_start_id IS NOT NULL AND ift.db_uuid IS NOT NULL) ",
+                                                      # "OR (stn.seq_start_id IS NULL) ",
                                                       ""))
         
         if(minMaxSeqIdxLeafOnly){
@@ -1192,7 +1192,7 @@ query_databaseHier <- function(emuDBhandle,
                                                         "ON astn.db_uuid = hltirt.db_uuid", otherSuffix, " ", 
                                                         " AND astn.session = hltirt.session", otherSuffix, " ", 
                                                         " AND astn.bundle = hltirt.bundle", otherSuffix, " ", 
-                                                        " AND astn.seq_start_id = hltirt.seq_start_id_start ",
+                                                        " AND astn.seq_start_id = hltirt.seq_start_id", otherSuffix, " ", 
                                                         joinType, " hier_right_trapeze_interm_res_tmp AS hrtirt ",
                                                         "ON astn.db_uuid = hrtirt.db_uuid", otherSuffix, " ",
                                                         " AND astn.session = hrtirt.session", otherSuffix, " ",

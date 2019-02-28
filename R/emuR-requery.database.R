@@ -368,6 +368,9 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
     stop("Segment list 'seglist' must be of type 'emuRsegs'. (Do not set a value for 'resultType' parameter for the query, the default resultType will be used)")
   }
   
+  preserveLeafLength = FALSE
+  preserveAnchorLength = FALSE
+  
   if(nrow(seglist)==0){
     # empty seglist, return the empty list
     return(seglist)
@@ -460,9 +463,6 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
       seglistLevelIndexInPath = match(seglistAttrDefLn, connectHierPaths[[1]])
       reqLevelIndexInPath = match(reqAttrDefLn, connectHierPaths[[1]])
       
-      preserveLeafLength = FALSE
-      preserveAnchorLength = FALSE
-      
       if(reqLevelIndexInPath > seglistLevelIndexInPath){
         # going up
         preserveAnchorLength = TRUE
@@ -547,6 +547,7 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
                                                       ""))
         
       }
+      
       #extract according item_id#s
       DBI::dbExecute(emuDBhandle$connection, paste0("INSERT INTO interm_res_items_tmp_root ",
                                                     "SELECT sit.db_uuid, ",
@@ -610,7 +611,8 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
                                          filteredTablesSuffix = "", 
                                          queryStr = "FROM REQUERY", 
                                          calcTimes = calcTimes,
-                                         preserveLength = T,
+                                         preserveLeafLength = F, # SIC set to preserveLeafLength
+                                         preserveAnchorLength = F, # SIC set to preserveAnchorLength  
                                          verbose = verbose)
     inSlLen = nrow(seglist)
     trSlLen = nrow(trSl)

@@ -60,7 +60,7 @@ test_that("Load example database ae",{
   # 
   test_that("Query sequence",{
 
-    r1=query(ae,"[[[Phoneme='tS' ^ Phonetic='t'] -> Phoneme=I] -> Phoneme=l]",resultType=NULL)
+    r1=query(ae,"[[[Phoneme='tS' ^ Phonetic='t'] -> Phoneme=I] -> Phoneme=l]", resultType=NULL)
     expect_that(nrow(r1),equals(1))
     expect_that(r1[1,'db_uuid'],is_identical_to(.test_emu_ae_db_uuid))  
     expect_that(r1[1,'session'],is_identical_to('0000'))
