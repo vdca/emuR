@@ -463,12 +463,12 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
       seglistLevelIndexInPath = match(seglistAttrDefLn, connectHierPaths[[1]])
       reqLevelIndexInPath = match(reqAttrDefLn, connectHierPaths[[1]])
       
-      if(reqLevelIndexInPath > seglistLevelIndexInPath){
+      if(reqLevelIndexInPath < seglistLevelIndexInPath){
         # going up
-        preserveAnchorLength = TRUE
+        preserveLeafLength = TRUE
       }else{
         # going down
-        preserveLeafLength = TRUE
+        preserveAnchorLength = TRUE
       }
       
       query_databaseHier(emuDBhandle, 
@@ -477,8 +477,8 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
                          leftTableSuffix = origSeglistItemsTableSuffix, 
                          rightTableSuffix = reqLevelItemsTableSuffix, 
                          filteredTablesSuffix = "", 
-                         preserveLeafLength = preserveLeafLength,
-                         preserveAnchorLength = preserveAnchorLength,
+                         preserveLeafLength = F,#preserveLeafLength,
+                         preserveAnchorLength = F,#preserveAnchorLength,
                          verbose = verbose) # result written to lr_exp_res_tmp table
       
       # move query_databaseHier results into interm_res_items_tmp_root 
