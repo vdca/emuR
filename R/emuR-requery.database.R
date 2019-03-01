@@ -477,8 +477,8 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
                          leftTableSuffix = origSeglistItemsTableSuffix, 
                          rightTableSuffix = reqLevelItemsTableSuffix, 
                          filteredTablesSuffix = "", 
-                         preserveLeafLength = F,#preserveLeafLength,
-                         preserveAnchorLength = F,#preserveAnchorLength,
+                         preserveLeafLength = preserveLeafLength,
+                         preserveAnchorLength = preserveAnchorLength,
                          verbose = verbose) # result written to lr_exp_res_tmp table
       
       # move query_databaseHier results into interm_res_items_tmp_root 
@@ -611,8 +611,8 @@ requery_hier <- function(emuDBhandle, seglist, level, collapse = TRUE, resultTyp
                                          filteredTablesSuffix = "", 
                                          queryStr = "FROM REQUERY", 
                                          calcTimes = calcTimes,
-                                         preserveLeafLength = F, # SIC set to preserveLeafLength
-                                         preserveAnchorLength = F, # SIC set to preserveAnchorLength  
+                                         preserveLeafLength = preserveLeafLength,
+                                         preserveAnchorLength = preserveAnchorLength,
                                          verbose = verbose)
     inSlLen = nrow(seglist)
     trSlLen = nrow(trSl)

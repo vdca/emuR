@@ -872,12 +872,15 @@ query_databaseHier <- function(emuDBhandle,
     for(i in 1:length(connectHierPaths)){
       cat(paste0(i, ".) ", paste0(connectHierPaths[[i]], collapse = "->")), "\n")
     }
-    idx <- readline(prompt="Choose a path by selecting its number (note that comma seperated numbers (e.g., 1, 2, 3) works to select multiple paths): ")
+    idx <- readline(prompt = "Choose a path by selecting its number (note that comma seperated numbers (e.g., 1, 2, 3) works to select multiple paths): ")
     
     idx = as.integer(stringr::str_split(idx, ",\\s*", simplify = T))
     
     connectHierPaths = connectHierPaths[idx]
   }
+  
+  # add row number column to tables to track dropped values
+  DBI::dbExecute(emuDBhandle$connection, paste0("ALTER TABLE table_name ADD row_nr datatype;"))
   
   # loop through multiple paths
   for(connectHierPath in connectHierPaths){
@@ -908,33 +911,34 @@ query_databaseHier <- function(emuDBhandle,
       leftIsLeaf = FALSE
     }
     
-    # set start table name
-    # and index
-    startTableName = leafSideTableName
-    endTableName = anchorSideTableName
-    hierarchyLevelIdx = length(connectHierPath):1
-    seqStartIdMatch = "to_id"
-    itemIdMatch = "from_id"
-    
-    joinType = "INNER JOIN"
-    # preserve leaf length by applying using LEFT JOIN
-    # while walking up the hierarchy
-    if(preserveLeafLength){
-      joinType = "LEFT JOIN"
-    }
+    # # set start table name
+    # # and index
+    # startTableName = leafSideTableName
+    # endTableName = anchorSideTableName
+    # hierarchyLevelIdx = length(connectHierPath):1
+    # seqStartIdMatch = "to_id"
+    # itemIdMatch = "from_id"
+    # 
+    # joinType = "INNER JOIN"
+    # # preserve leaf length by applying using LEFT JOIN
+    # # while walking up the hierarchy
+    # if(preserveLeafLength){
+    #   joinType = "LEFT JOIN"
+    # }
     
     # change walking direction (from anchor to leaf when preserving anchor length)
     # NOTE: this also changes the column name meaning *_start columns are actually the anchors 
-    if(preserveAnchorLength){
-      joinType = "LEFT JOIN"
-      startTableName = anchorSideTableName
-      endTableName = leafSideTableName
-      hierarchyLevelIdx = 1:length(connectHierPath)
-      seqStartIdMatch = "from_id"
-      itemIdMatch = "to_id"
-    }
+    # if(preserveAnchorLength){
+    #   joinType = "LEFT JOIN"
+    #   startTableName = anchorSideTableName
+    #   endTableName = leafSideTableName
+    #   hierarchyLevelIdx = 1:length(connectHierPath)
+    #   seqStartIdMatch = "from_id"
+    #   itemIdMatch = "to_id"
+    # }
     
     for(i in hierarchyLevelIdx){
+      
       nextLevelName = connectHierPath[i - 1]
       
       if(preserveAnchorLength){
@@ -945,7 +949,6 @@ query_databaseHier <- function(emuDBhandle,
         # start at bottom or bottom of connectHierPath (depending on preserveAnchorLength)
         # walk up/down left side of trapeze
         #
-        
         DBI::dbExecute(emuDBhandle$connection, paste0("INSERT INTO hier_left_trapeze_interm_res_tmp ",
                                                       "SELECT DISTINCT ",
                                                       " stn.db_uuid, ",
@@ -1098,7 +1101,7 @@ query_databaseHier <- function(emuDBhandle,
                                                                          "WHERE (hrtirt.seq_start_id IS NOT NULL AND ift.db_uuid IS NOT NULL) ",
                                                                          "OR (hrtirt.seq_start_id IS NULL) ",
                                                                          ""))
-        
+
         DBI::dbExecute(emuDBhandle$connection, "DELETE FROM hier_left_trapeze_interm_res_tmp")
         DBI::dbExecute(emuDBhandle$connection, "DELETE FROM hier_right_trapeze_interm_res_tmp")
         
@@ -1110,37 +1113,48 @@ query_databaseHier <- function(emuDBhandle,
         }
         
       }else{
-        # at the top of the trapeze:
-        # extract hier_left/right_trapeze items as left values and start values as right values
+        # at the top/bottom of the trapeze:
+        # extract hier_left/right_trapeze items as left values and start table values as right values
         
+        #
+        startSuffix = "_start"
+        otherSuffix = ""
+        # select other side when walking down
+        if(preserveAnchorLength){
+          startSuffix = ""
+          otherSuffix = "_start"
+        }
+        
+        browser()
         if(leftIsLeaf){
           DBI::dbExecute(emuDBhandle$connection, paste0("INSERT OR IGNORE INTO lr_exp_res_tmp ",
                                                         "SELECT ",
-                                                        " hltirt.db_uuid, ",
-                                                        " hltirt.session, ", 
-                                                        " hltirt.bundle, ",
-                                                        " hrtirt.seq_start_id_start AS l_seq_start_id, ", 
-                                                        " hrtirt.seq_end_id_start AS l_seq_end_id, ",
-                                                        " hrtirt.seq_len_start AS l_seq_len, ", 
-                                                        " hrtirt.level_start AS l_level, ", 
-                                                        " hrtirt.seq_start_seq_idx_start AS l_seq_start_seq_idx, ", 
-                                                        " hrtirt.seq_end_seq_idx_start AS l_seq_end_seq_idx, ",
-                                                        " hltirt.seq_start_id AS r_seq_start_id, ", 
-                                                        " hrtirt.seq_end_id AS r_seq_end_id, ", 
-                                                        " NULL AS r_seq_len, hltirt.level AS r_level, ", 
-                                                        " hltirt.seq_start_seq_idx AS r_seq_start_seq_idx, ",
-                                                        " hrtirt.seq_end_seq_idx AS r_seq_end_seq_idx ",
-                                                        "FROM ", " hier_left_trapeze_interm_res_tmp AS hltirt ",
-                                                        joinType, " ", anchorSideTableName , " AS astn ",
-                                                        "ON hltirt.db_uuid = astn.db_uuid ", 
-                                                        " AND hltirt.session = astn.session ", 
-                                                        " AND hltirt.bundle = astn.bundle  ", 
-                                                        " AND hltirt.seq_start_id = astn.seq_start_id ",
+                                                        " hltirt.db_uuid", otherSuffix, ", ",
+                                                        " hltirt.session", otherSuffix, ", ",
+                                                        " hltirt.bundle", otherSuffix, ", ",
+                                                        " hrtirt.seq_start_id", startSuffix, " AS l_seq_start_id, ",
+                                                        " hrtirt.seq_end_id", startSuffix, " AS l_seq_end_id, ",
+                                                        " hrtirt.seq_len", startSuffix, " AS l_seq_len, ",
+                                                        " hrtirt.level", startSuffix, " AS l_level, ",
+                                                        " hrtirt.seq_start_seq_idx", startSuffix, " AS l_seq_start_seq_idx, ",
+                                                        " hrtirt.seq_end_seq_idx", startSuffix, " AS l_seq_end_seq_idx, ",
+                                                        " hltirt.seq_start_id", otherSuffix, " AS r_seq_start_id, ",
+                                                        " hrtirt.seq_end_id", otherSuffix, " AS r_seq_end_id, ",
+                                                        " NULL AS r_seq_len, ",
+                                                        " hltirt.level", otherSuffix, " AS r_level, ",
+                                                        " hltirt.seq_start_seq_idx", otherSuffix, " AS r_seq_start_seq_idx, ",
+                                                        " hrtirt.seq_end_seq_idx", otherSuffix, " AS r_seq_end_seq_idx ",
+                                                        "FROM ", anchorSideTableName , " AS astn ",
+                                                        joinType, " ", " hier_left_trapeze_interm_res_tmp AS hltirt ",
+                                                        "ON astn.db_uuid = hltirt.db_uuid", otherSuffix, " ", 
+                                                        " AND astn.session = hltirt.session", otherSuffix, " ",  
+                                                        " AND astn.bundle = hltirt.bundle", otherSuffix, " ",  
+                                                        " AND astn.seq_start_id = hltirt.seq_start_id", otherSuffix, " ", 
                                                         joinType, " hier_right_trapeze_interm_res_tmp AS hrtirt ",
-                                                        "ON astn.db_uuid = hrtirt.db_uuid ",
-                                                        " AND astn.session = hrtirt.session ", 
-                                                        " AND astn.bundle = hrtirt.bundle ", 
-                                                        " AND astn.seq_end_id = hrtirt.seq_start_id ",
+                                                        "ON astn.db_uuid = hrtirt.db_uuid", otherSuffix, " ",
+                                                        " AND astn.session = hrtirt.session", otherSuffix, " ",
+                                                        " AND astn.bundle = hrtirt.bundle", otherSuffix, " ",
+                                                        " AND astn.seq_end_id = hrtirt.seq_end_id", otherSuffix, " ",
                                                         ""))
           
           # calculate and update missing r_seq_len
@@ -1161,14 +1175,6 @@ query_databaseHier <- function(emuDBhandle,
                                                         ")"))
           
         }else{
-          #
-          startSuffix = "_start"
-          otherSuffix = ""
-          # select other side when walking down
-          if(preserveAnchorLength){
-            startSuffix = ""
-            otherSuffix = "_start"
-          }
           
           DBI::dbExecute(emuDBhandle$connection, paste0("INSERT INTO lr_exp_res_tmp ",
                                                         "SELECT DISTINCT ", 
@@ -1197,7 +1203,7 @@ query_databaseHier <- function(emuDBhandle,
                                                         "ON astn.db_uuid = hrtirt.db_uuid", otherSuffix, " ",
                                                         " AND astn.session = hrtirt.session", otherSuffix, " ",
                                                         " AND astn.bundle = hrtirt.bundle", otherSuffix, " ",
-                                                        " AND astn.seq_end_id = hrtirt.seq_start_id", otherSuffix, " ",
+                                                        " AND astn.seq_end_id = hrtirt.seq_start_id", otherSuffix, " ", # was hrtirt.seq_start_id???
                                                         ""))
           
           # calculate and update missing l_seq_len
@@ -1222,6 +1228,7 @@ query_databaseHier <- function(emuDBhandle,
       }
     }
   }
+  
   # clean up tmp tables
   DBI::dbExecute(emuDBhandle$connection, "DELETE FROM hier_left_trapeze_interm_res_tmp")
   DBI::dbExecute(emuDBhandle$connection, "DELETE FROM hier_right_trapeze_interm_res_tmp")

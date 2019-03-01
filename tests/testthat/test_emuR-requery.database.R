@@ -31,8 +31,6 @@ ae = load_emuDB(file.path(.test_emu_ae_db_dir,
                 inMemoryCache = internalVars$testingVars$inMemoryCache, 
                 verbose=FALSE)
 
-expect_that(ae$dbName, is_equivalent_to('ae'))
-
 test_that("Requery sequential",{
   
   # Phoneme sequences n->t
@@ -57,7 +55,7 @@ test_that("Requery sequential",{
   
   # Bug ID 42
   sl1 = query(ae, "[[Phonetic = k -> Phonetic =~ .*] -> Phonetic =~ .*]")
-  sl1w = suppressWarnings(requery_hier(ae, sl1, level = 'Word', verbose = F)) # this will throw a warning because sl1 has 8 rows and sl1w has 7 msajc023 k->H->s not dominated by single C
+  sl1w = requery_hier(ae, sl1, level = 'Word', verbose = F) # sl1 will contain a NA row (row nr 6) msajc023 k->H->s not dominated by single C
   # sl1w has sequence length 1
   sl1w2 = requery_seq(ae, sl1w[1,])
   # Bug startItemID != endItemID, and label is not a sequence !!
@@ -183,65 +181,67 @@ test_that("hierarchical throws warning if badly ordered/multiple levels",{
 })
 
 
-# test_that("requery_hier inserts NAs",{
-#   
-#   # delete link to check if NA is inserted
-#   DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc003' AND from_id = 115 AND to_id = 148")
-#   DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc012' AND from_id = 134 AND to_id = 169")
-#   rewrite_annots(ae)
-#   
-#   # parent requery
-#   sl = query(ae, "Phonetic == m", resultType = "tibble")
-#   
-#   sl_req = requery_hier(ae, sl, level = "Phoneme", resultType = "tibble")
-#   
-#   expect_equal(nrow(sl), nrow(sl_req))
-#   expect_true(all(is.na(sl_req[1,])))
-#   expect_true(all(is.na(sl_req[2,])))
-#   
-#   # child reuqery
-#   sl = query(ae, "Phoneme == m", resultType = "tibble", calcTimes = F)
-#   
-#   sl_req = requery_hier(ae, sl, level = "Phonetic", resultType = "tibble")
-#   
-#   expect_equal(nrow(sl), nrow(sl_req))
-#   expect_true(all(is.na(sl_req[1,])))
-#   expect_true(all(is.na(sl_req[2,])))
-#   
-#   # todo: 
-#   sl_req = requery_hier(ae, sl, level = "Phonetic", calcTimes = F, resultType = "tibble")
-#   
-#   # over multiple levels (parent requery)
-#   sl = query(ae, "Phonetic == m", resultType = "tibble")
-#   
-#   sl_req = requery_hier(ae, sl, level = "Text", resultType = "tibble")
-#   
-#   expect_equal(nrow(sl), nrow(sl_req))
-#   expect_true(all(is.na(sl_req[1,])))
-#   expect_true(all(is.na(sl_req[2,])))
-#   
-#   # over multiple levels (child requery)
-#   
-#   # first get labels
-#   sl = query(ae, "Phoneme == m", resultType = "tibble", calcTimes = F)
-#   
-#   sl_req = requery_hier(ae, sl, level = "Text", resultType = "tibble")
-#   
-#   sl_req = requery_hier(ae, sl, level = "Text", resultType = "tibble")
-#   
-#   # sl = query(ae, 
-#   #            paste0("Text == ", paste(sl_req$labels, collapse = " | ")), 
-#   #            resultType = "tibble", 
-#   #            calcTimes = F)
-#   # 
-#   # sl_req = requery_hier(ae, sl, level = "Phonetic", resultType = "tibble")
-#   
-#   
-#   # expect_equal(nrow(sl), nrow(sl_req))
-#   # expect_true(all(is.na(sl_req[1,])))
-#   # expect_true(all(is.na(sl_req[2,])))
-#   
-# })
+test_that("requery_hier inserts NAs",{
+
+  # delete link to check if NA is inserted
+  DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc003' AND from_id = 115 AND to_id = 148")
+  DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc012' AND from_id = 134 AND to_id = 169")
+  DBI::dbExecute(ae$connection, "DELETE FROM links WHERE bundle = 'msajc023' AND from_id = 96 AND to_id = 120")
+  rewrite_annots(ae, verbose = F)
+
+  # parent requery
+  sl = query(ae, "Phonetic == m", resultType = "tibble")
+
+  sl_req = requery_hier(ae, sl, level = "Phoneme", resultType = "tibble")
+
+  expect_equal(nrow(sl), nrow(sl_req))
+  expect_true(all(is.na(sl_req[1,])))
+  expect_true(all(is.na(sl_req[2,])))
+  expect_true(all(is.na(sl_req[5,])))
+  
+  # child reuqery
+  sl = query(ae, "Phoneme == m", resultType = "tibble", calcTimes = F)
+
+  sl_req = requery_hier(ae, sl, level = "Phonetic", resultType = "tibble")
+  # 
+  # expect_equal(nrow(sl), nrow(sl_req))
+  # expect_true(all(is.na(sl_req[1,])))
+  # expect_true(all(is.na(sl_req[2,])))
+  # 
+  # # todo:
+  # sl_req = requery_hier(ae, sl, level = "Phonetic", calcTimes = F, resultType = "tibble")
+  # 
+  # # over multiple levels (parent requery)
+  # sl = query(ae, "Phonetic == m", resultType = "tibble")
+  # 
+  # sl_req = requery_hier(ae, sl, level = "Text", resultType = "tibble")
+  # 
+  # expect_equal(nrow(sl), nrow(sl_req))
+  # expect_true(all(is.na(sl_req[1,])))
+  # expect_true(all(is.na(sl_req[2,])))
+
+  # over multiple levels (child requery)
+
+  # first get labels
+  sl = query(ae, "Phoneme == m", resultType = "tibble", calcTimes = F)
+
+  sl_req = requery_hier(ae, sl, level = "Text", resultType = "tibble")
+
+  sl_req = requery_hier(ae, sl, level = "Text", resultType = "tibble")
+
+  # sl = query(ae,
+  #            paste0("Text == ", paste(sl_req$labels, collapse = " | ")),
+  #            resultType = "tibble",
+  #            calcTimes = F)
+  #
+  # sl_req = requery_hier(ae, sl, level = "Phonetic", resultType = "tibble")
+
+
+  # expect_equal(nrow(sl), nrow(sl_req))
+  # expect_true(all(is.na(sl_req[1,])))
+  # expect_true(all(is.na(sl_req[2,])))
+
+})
 
 # clean up (also disconnects)
 DBI::dbDisconnect(ae$connection)

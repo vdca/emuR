@@ -50,8 +50,8 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                           filteredTablesSuffix, 
                                           queryStr = "", 
                                           calcTimes = TRUE, 
-                                          preserveLeafLength = F,
-                                          preserveAnchorLength = F,
+                                          preserveLeafLength = FALSE,
+                                          preserveAnchorLength = FALSE,
                                           verbose){
   
   itemsTableName = paste0("items", filteredTablesSuffix)
@@ -74,7 +74,7 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
   }
   # check for empty result 
   itemsN = DBI::dbGetQuery(emuDBhandle$connection, paste0("SELECT COUNT(*) AS n FROM interm_res_items_tmp_root"))$n
-
+  
   if(itemsN > 0 ){
     # use "normal" items
     itsTableName = "interm_res_items_tmp_root"
@@ -83,6 +83,18 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
     seqLenColName = "seq_len"
     levelColName = "level"
     
+    # set type of join depending on preserve*Length args
+    if(preserveLeafLength | preserveAnchorLength){
+      joinType = "LEFT JOIN"
+      orderByString = "" # don't reorder if left joining to perserve NA/NULL row placement
+    }else{
+      joinType = "INNER JOIN"
+      orderByString = paste0("ORDER BY items_seq_start.db_uuid, ",
+                             " items_seq_start.session, ", 
+                             " items_seq_start.bundle, ", 
+                             " items_seq_start.level, ", 
+                             " items_seq_start.seq_idx")
+    }
     
     dbConfig = load_DBconfig(emuDBhandle)
     
@@ -90,14 +102,6 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
     
     attrDefLn = get_levelNameForAttributeName(emuDBhandle, resultAttrDef)
     ld = get_levelDefinition(emuDBhandle, attrDefLn)
-    
-    # get labelIdx (not needed any more as resultAttrDef is used instead)
-    # for(i in 1:length(ld$attributeDefinitions)){
-    #   if(ld$attributeDefinitions[[i]]$name == resultAttrDef){
-    #     labelIdx = i
-    #     break
-    #   }
-    # }
     
     # create temp table that holds emuRsegs without labels
     DBI::dbExecute(emuDBhandle$connection, paste0("CREATE TEMP TABLE emursegs_tmp ( ",
@@ -137,28 +141,25 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                     " NULL AS sampleStart, ", 
                                                     " NULL AS sample_end, ", 
                                                     " items_seq_start.sample_rate AS sample_rate ",
-                                                    "FROM interm_res_items_tmp_root, ",
-                                                    " items AS items_seq_start, ",
-                                                    " items AS items_seq_end, ",
-                                                    " labels ",
-                                                    "WHERE interm_res_items_tmp_root.db_uuid = items_seq_start.db_uuid ", 
+                                                    "FROM interm_res_items_tmp_root ",
+                                                    joinType, " items AS items_seq_start ",
+                                                    "ON interm_res_items_tmp_root.db_uuid = items_seq_start.db_uuid ", 
                                                     " AND interm_res_items_tmp_root.session = items_seq_start.session ", 
                                                     " AND interm_res_items_tmp_root.bundle = items_seq_start.bundle ", 
                                                     " AND interm_res_items_tmp_root.seq_start_id = items_seq_start.item_id ",
-                                                    " AND interm_res_items_tmp_root.db_uuid = items_seq_end.db_uuid ", 
+                                                    joinType, " items AS items_seq_end ",
+                                                    "ON interm_res_items_tmp_root.db_uuid = items_seq_end.db_uuid ", 
                                                     " AND interm_res_items_tmp_root.session = items_seq_end.session ", 
                                                     " AND interm_res_items_tmp_root.bundle = items_seq_end.bundle ", 
                                                     " AND interm_res_items_tmp_root.seq_end_id = items_seq_end.item_id ",
-                                                    " AND interm_res_items_tmp_root.db_uuid = labels.db_uuid ",
+                                                    joinType, " labels ",
+                                                    "ON interm_res_items_tmp_root.db_uuid = labels.db_uuid ",
                                                     " AND interm_res_items_tmp_root.session = labels.session ", 
                                                     " AND interm_res_items_tmp_root.bundle = labels.bundle ", 
                                                     " AND interm_res_items_tmp_root.seq_end_id = labels.item_id ", 
                                                     " AND labels.name = '", resultAttrDef, "' ",
-                                                    "ORDER BY items_seq_start.db_uuid, ",
-                                                    " items_seq_start.session, ", 
-                                                    " items_seq_start.bundle, ", 
-                                                    " items_seq_start.level, ", 
-                                                    " items_seq_start.seq_idx"))
+                                                    orderByString,
+                                                    ""))
       
     }else if(ld$type != "ITEM"){ # if level has time information, time can be calculated from sample values directly
       DBI::dbExecute(emuDBhandle$connection, paste0("INSERT INTO emursegs_tmp ",
@@ -170,12 +171,12 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                     "   ELSE (CAST (items_seq_start.sample_start AS REAL) - 0.5 ) / CAST(items_seq_start.sample_rate AS REAL) * 1000.0 ",
                                                     "   END",
                                                     "  WHEN 'EVENT' THEN CAST (items_seq_start.sample_point AS REAL) / CAST(items_seq_start.sample_rate AS REAL) * 1000.0 ",
-                                                    "  ELSE 'SIC!! Something went wrong' ",
+                                                    "  ELSE NULL ",
                                                     " END AS start, ",
                                                     " CASE items_seq_start.type ",
                                                     "  WHEN 'SEGMENT' THEN (CAST (items_seq_end.sample_start + items_seq_end.sample_dur AS REAL) + 0.5) / CAST (items_seq_end.sample_rate AS REAL) * 1000.0 ",
                                                     "  WHEN 'EVENT' THEN 0.0",
-                                                    "  ELSE 'SIC!! Something went wrong' ",
+                                                    "  ELSE NULL ",
                                                     " END AS end, ",
                                                     " interm_res_items_tmp_root.session || ':' || interm_res_items_tmp_root.bundle AS utts, ",
                                                     " interm_res_items_tmp_root.db_uuid, ",
@@ -198,28 +199,25 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                     "    WHEN 'EVENT' THEN items_seq_start.sample_point ",
                                                     " END AS sample_end, ",
                                                     " items_seq_start.sample_rate AS sample_rate ",
-                                                    "FROM interm_res_items_tmp_root, ",
-                                                    " items AS items_seq_start, ", 
-                                                    " items AS items_seq_end, ",
-                                                    " labels ",
-                                                    "WHERE interm_res_items_tmp_root.db_uuid = items_seq_start.db_uuid ",
+                                                    "FROM interm_res_items_tmp_root ",
+                                                    joinType, " items AS items_seq_start ", 
+                                                    "ON interm_res_items_tmp_root.db_uuid = items_seq_start.db_uuid ",
                                                     " AND interm_res_items_tmp_root.session = items_seq_start.session ",
                                                     " AND interm_res_items_tmp_root.bundle = items_seq_start.bundle ",
                                                     " AND interm_res_items_tmp_root.seq_start_id = items_seq_start.item_id ",
-                                                    " AND interm_res_items_tmp_root.db_uuid = items_seq_end.db_uuid ",
+                                                    joinType, " items AS items_seq_end ",
+                                                    "ON interm_res_items_tmp_root.db_uuid = items_seq_end.db_uuid ",
                                                     " AND interm_res_items_tmp_root.session = items_seq_end.session ", 
                                                     " AND interm_res_items_tmp_root.bundle = items_seq_end.bundle ", 
                                                     " AND interm_res_items_tmp_root.seq_end_id = items_seq_end.item_id ",
-                                                    " AND interm_res_items_tmp_root.db_uuid = labels.db_uuid ", 
+                                                    joinType, " labels ",
+                                                    "ON interm_res_items_tmp_root.db_uuid = labels.db_uuid ", 
                                                     " AND interm_res_items_tmp_root.session = labels.session ", 
                                                     " AND interm_res_items_tmp_root.bundle = labels.bundle ", 
                                                     " AND interm_res_items_tmp_root.seq_end_id = labels.item_id ", 
                                                     " AND labels.name = '", resultAttrDef, "' ",
-                                                    "ORDER BY items_seq_start.db_uuid, ",
-                                                    " items_seq_start.session, ",
-                                                    " items_seq_start.bundle, ",
-                                                    " items_seq_start.seq_idx"))
-      
+                                                    orderByString, 
+                                                    ""))
       
     }else{
       segLvlNms = find_segmentLevels(emuDBhandle, resultAttrDef)
@@ -266,13 +264,6 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                     " AND bundle IN (SELECT bundle FROM interm_res_items_tmp_root) ",
                                                     ""))
       
-      # set type of join depending on preserveLength arg (prob. should update agrument name of query_databaseHier() to something like: perserveLeafLength)
-      if(preserveLeafLength | preserveAnchorLength){
-        joinType = "LEFT JOIN"
-      }else{
-        joinType = "INNER JOIN"
-      }
-      
       query_databaseHier(emuDBhandle, 
                          firstLevelName = lnwt, 
                          secondLevelName = attrDefLn, 
@@ -283,6 +274,17 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                          preserveLeafLength = preserveLeafLength,
                          preserveAnchorLength = preserveAnchorLength,
                          verbose = verbose) # result written to lr_exp_res_tmp table
+      
+      # set type of join depending on preserve*Length args
+      if(preserveLeafLength | preserveAnchorLength){
+        orderByString = "" # don't reorder if left joining to perserve NA/NULL row placement
+      }else{
+        orderByString = paste0("ORDER BY lr_exp_res_tmp.db_uuid, ",
+                               " lr_exp_res_tmp.session, ",
+                               " lr_exp_res_tmp.bundle, ",
+                               " min(itl.sample_start)")
+      }
+      
       
       # calculate left and right times and store in tmp table
       DBI::dbExecute(emuDBhandle$connection, paste0("INSERT INTO emursegs_tmp ",
@@ -335,16 +337,24 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                     " irit.bundle, ", 
                                                     " irit.seq_start_id, ", 
                                                     " irit.seq_end_id ", 
-                                                    "ORDER BY lr_exp_res_tmp.db_uuid, ",
-                                                    " lr_exp_res_tmp.session, ", 
-                                                    " lr_exp_res_tmp.bundle, ", 
-                                                    " min(itl.sample_start)",
+                                                    orderByString,
                                                     ""))
       
     }
     
     # construct labels
     DBI::dbExecute(emuDBhandle$connection, paste0("CREATE INDEX IF NOT EXISTS emursegs_tmp_idx ON emursegs_tmp(db_uuid, session, bundle, start_item_id, end_item_id)"))
+    
+    # set type of join depending on preserve*Length args
+    if(preserveLeafLength | preserveAnchorLength){
+      orderByString =  "" # don't reorder if left joining to perserve NA/NULL row placement
+    }else{
+      orderByString = paste0("ORDER BY emursegs_tmp.db_uuid, ",
+                             " emursegs_tmp.session, ",
+                             " emursegs_tmp.bundle, ",
+                             " emursegs_tmp.level, ",
+                             " iseq.seq_idx ")
+    }
     
     seglist = DBI::dbGetQuery(emuDBhandle$connection, paste0("SELECT GROUP_CONCAT(ungrouped.label, '->') AS labels, ", 
                                                              " start, ", 
@@ -380,34 +390,30 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
                                                              " emursegs_tmp.sample_end, ", 
                                                              " emursegs_tmp.sample_rate ",
                                                              "FROM emursegs_tmp ", 
-                                                             "LEFT JOIN ", itemsTableName, " AS itl ", 
+                                                             joinType, " ", itemsTableName, " AS itl ", 
                                                              "ON emursegs_tmp.db_uuid = itl.db_uuid ", 
                                                              " AND emursegs_tmp.session = itl.session ", 
                                                              " AND emursegs_tmp.bundle = itl.bundle ",
                                                              " AND emursegs_tmp.start_item_id = itl.item_id ",
-                                                             "LEFT JOIN ", itemsTableName, " AS itr ", 
+                                                             joinType, " ", itemsTableName, " AS itr ", 
                                                              " ON emursegs_tmp.db_uuid = itr.db_uuid ", 
                                                              " AND emursegs_tmp.session = itr.session ", 
                                                              " AND emursegs_tmp.bundle = itr.bundle ", 
                                                              " AND emursegs_tmp.end_item_id = itr.item_id ",
-                                                             "LEFT JOIN ", itemsTableName, " AS iseq ", 
+                                                             joinType, " ", itemsTableName, " AS iseq ", 
                                                              "ON itl.db_uuid = iseq.db_uuid ", 
                                                              " AND itl.session = iseq.session ", 
                                                              " AND itl.bundle = iseq.bundle ", 
                                                              " AND itl.level = iseq.level ",
                                                              " AND iseq.seq_idx >= itl.seq_idx ", 
                                                              " AND iseq.seq_idx <= itr.seq_idx ", # join all seq. items
-                                                             "LEFT JOIN ", labelsTableName, " AS labels ", # items table left & right
+                                                             joinType, " ", labelsTableName, " AS labels ", # items table left & right
                                                              "ON iseq.db_uuid = labels.db_uuid ", 
                                                              " AND iseq.session = labels.session ", 
                                                              " AND iseq.bundle = labels.bundle ", 
                                                              " AND iseq.item_id = labels.item_id ",
                                                              " AND labels.name = '", resultAttrDef, "' ",
-                                                             "ORDER BY emursegs_tmp.db_uuid, ", 
-                                                             " emursegs_tmp.session, ", 
-                                                             " emursegs_tmp.bundle, ", 
-                                                             " emursegs_tmp.level, ", 
-                                                             " iseq.seq_idx ",
+                                                             orderByString,
                                                              ") AS ungrouped ",
                                                              "GROUP BY rowid",
                                                              ""))
@@ -428,12 +434,11 @@ convert_queryResultToEmuRsegs <- function(emuDBhandle,
       slType='event'
     }
   }
-
+  
   segmentList = make.emuRsegs(dbName = emuDBhandle$dbName, seglist = seglist, query = queryStr, type = slType)
-  # if contains NAs -> also set level and type to NA
+  # if contains NAs -> also set everything to NA
   if(any(is.na(segmentList$labels))){
-    segmentList[is.na(segmentList$labels),]$level = NA
-    segmentList[is.na(segmentList$labels),]$type = NA
+    segmentList[is.na(segmentList$labels),] = NA
   }
   
   return(segmentList)
