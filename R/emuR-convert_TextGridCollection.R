@@ -48,7 +48,7 @@
 ##'} 
 convert_TextGridCollection <- function(dir, dbName, 
                                        targetDir, tgExt = 'TextGrid', 
-                                       audioExt = 'wav', tierNames = NULL, 
+                                       audioExt = 'wav', tierNames = NULL, sesName = '0000', 
                                        verbose = TRUE){
   # normalize paths
   dir = suppressWarnings(normalizePath(dir))
@@ -107,17 +107,6 @@ convert_TextGridCollection <- function(dir, dbName,
   # loop through fpl
   DBI::dbBegin(dbHandle$connection)
   for(i in 1:dim(fpl)[1]){
-    
-    # create session name
-    sesName = gsub('^_', 
-                   '', 
-                   gsub(.Platform$file.sep, 
-                        '_', 
-                        gsub(normalizePath(dir, 
-                                           winslash = .Platform$file.sep),
-                             '',
-                             dirname(normalizePath(fpl[i,1], 
-                                                   winslash = .Platform$file.sep)))))
     
     # session file path
     if(sesName == ""){
